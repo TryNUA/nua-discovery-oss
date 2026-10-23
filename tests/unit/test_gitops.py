@@ -1,4 +1,4 @@
-"""Tests for discovery/gitops.py. Every git operation runs against temporary repos, never this one."""
+"""Tests for nua/gitops.py. Every git operation runs against temporary repos, never this one."""
 from __future__ import annotations
 
 import base64
@@ -15,9 +15,9 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from discovery.gitops import GENERATED_PATHS, GitError, GitHubAppAuth, GitRemote, clone
+from nua.gitops import GENERATED_PATHS, GitError, GitHubAppAuth, GitRemote, clone
 
-SLUG = "discovery-ai/discovery-base"
+SLUG = "discovery-ai/nua-discovery"
 
 
 @pytest.fixture(autouse=True)
@@ -330,7 +330,7 @@ def test_stalled_fetch_times_out_and_releases_the_lock(bare, tmp_path, monkeypat
 def test_network_git_commands_carry_a_timeout(bare, tmp_path, monkeypatch):
     """fetch, push and clone get a timeout; local commands (checkout, reset, add, commit) run without one.
     A timeout's GitError never carries the token from the auth options."""
-    import discovery.gitops as gitops
+    import nua.gitops as gitops
     dest = tmp_path / "work"
     clone(SLUG, dest, "tok", remote_url=str(bare))
     real = gitops._run_git
@@ -424,7 +424,7 @@ def test_last_commit_message_reads_the_clone_for_a_local_remote(bare, tmp_path):
 
 
 def test_generated_paths_match_indexes_module():
-    indexes = pytest.importorskip("discovery.indexes")
+    indexes = pytest.importorskip("nua.indexes")
     assert sorted(GENERATED_PATHS) == sorted(indexes.GENERATED)
 
 

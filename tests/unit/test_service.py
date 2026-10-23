@@ -1,4 +1,4 @@
-"""Tests for service/main.py (receiver and processor apps) and discovery/settings.py. All offline."""
+"""Tests for service/main.py (receiver and processor apps) and nua/settings.py. All offline."""
 from __future__ import annotations
 
 import base64
@@ -16,14 +16,14 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from discovery import interact, runner, settings
-from discovery.context import Ctx
-from discovery.digest import write_digest
-from discovery.ingest.circleback import CirclebackClient
-from discovery.ingest.granola import GranolaClient, note_to_standard
-from discovery.ports import NullRemote
-from discovery.tasks import InlineQueue, task_name
-from discovery.types import Digest
+from nua import interact, runner, settings
+from nua.context import Ctx
+from nua.digest import write_digest
+from nua.ingest.circleback import CirclebackClient
+from nua.ingest.granola import GranolaClient, note_to_standard
+from nua.ports import NullRemote
+from nua.tasks import InlineQueue, task_name
+from nua.types import Digest
 from service import main
 
 GRANOLA_SECRET = "whsec_" + base64.b64encode(b"granola-test-key").decode()
@@ -76,10 +76,10 @@ def sctx(tmp_repo, monkeypatch) -> Ctx:
     edit_config(tmp_repo, "pipeline.yml", lambda p: p.update(ingest_cutoff=CUTOFF))
     for name, value in {"GRANOLA_WEBHOOK_SECRET": GRANOLA_SECRET, "GRANOLA_API_KEY": "grn_test",
                         "CIRCLEBACK_SIGNING_SECRET_ALEX": CB_SECRET, "CIRCLEBACK_API_KEY_ALEX": "cb_test",
-                        "GITHUB_WEBHOOK_SECRET": GH_SECRET, "GITHUB_APP_SLUG": "discovery-base",
+                        "GITHUB_WEBHOOK_SECRET": GH_SECRET, "GITHUB_APP_SLUG": "nua-discovery",
                         "SLACK_SIGNING_SECRET": SLACK_SECRET, "REPO_BRANCH": "main"}.items():
         monkeypatch.setenv(name, value)
-    for name in ("DISCOVERY_DEV", "RECEIVER_URL", "SCHEDULER_SERVICE_ACCOUNT"):
+    for name in ("NUA_DEV", "RECEIVER_URL", "SCHEDULER_SERVICE_ACCOUNT"):
         monkeypatch.delenv(name, raising=False)
     ctx = Ctx.for_tests(tmp_repo)
     ctx.remote = WritingRemote(tmp_repo)
@@ -595,7 +595,7 @@ def test_receiver_starts_without_cloning_or_building_clients(sctx):
 
 def test_github_ignores_the_apps_own_pushes_other_branches_and_pings(sctx):
     client = receiver(sctx)
-    body = push(["transcripts/a.md"], sender="discovery-base[bot]")
+    body = push(["transcripts/a.md"], sender="nua-discovery[bot]")
     assert client.post("/github", content=body, headers=gh_headers(body)).status_code == 200
     body = push(["transcripts/a.md"], ref="refs/heads/feature")
     assert client.post("/github", content=body, headers=gh_headers(body)).status_code == 200
@@ -719,8 +719,8 @@ def post_slack(client: TestClient, payload: dict):
 def repo_free(monkeypatch):
     """The production receiver (create_app) with fake Slack and queue clients, where anything that would
     clone, pull or reach GitHub fails the test."""
-    from discovery import gitops
-    from discovery.ports import FakeSlack, RecordingQueue
+    from nua import gitops
+    from nua.ports import FakeSlack, RecordingQueue
 
     def forbidden(*args, **kwargs):
         raise AssertionError("the Slack path touched the repo or GitHub")
@@ -846,7 +846,7 @@ def test_bot_messages_and_other_events_are_ignored(repo_free):
 
 def test_scheduler_routes_enqueue_without_the_repo(repo_free, monkeypatch):
     client, _, queue = repo_free
-    monkeypatch.setenv("DISCOVERY_DEV", "1")
+    monkeypatch.setenv("NUA_DEV", "1")
     assert client.post("/sweep", json={}).status_code == 200
     assert client.post("/rollup", json={}).status_code == 200
     assert [t["kind"] for t in queue.tasks] == ["sweep", "rollup"]
@@ -858,7 +858,7 @@ def test_importing_the_receiver_stays_light():
     import sys
 
     code = ("import sys, service.main\n"
-            "heavy = ('anthropic', 'openai', 'google.genai', 'discovery.gitops', 'discovery.providers', 'google.cloud.tasks_v2')\n"
+            "heavy = ('anthropic', 'openai', 'google.genai', 'nua.gitops', 'nua.providers', 'google.cloud.tasks_v2')\n"
             "print(','.join(m for m in heavy if m in sys.modules))\n")
     env = {k: v for k, v in os.environ.items() if k != "SERVICE_ROLE"}
     env["SERVICE_ROLE"] = "receiver"
@@ -878,7 +878,7 @@ def test_scheduler_routes_need_a_token(sctx):
 
 
 def test_scheduler_routes_skip_the_check_in_dev(sctx, monkeypatch):
-    monkeypatch.setenv("DISCOVERY_DEV", "1")
+    monkeypatch.setenv("NUA_DEV", "1")
     client = receiver(sctx)
     assert client.post("/sweep", json={"granola_only": True}).status_code == 200
     assert client.post("/rollup", json={"bootstrap": True}).status_code == 200
@@ -891,14 +891,14 @@ def test_scheduler_oidc_token_checked_with_google_auth(sctx, monkeypatch):
     from google.oauth2 import id_token
 
     monkeypatch.setenv("RECEIVER_URL", "https://receiver.example.run.app")
-    monkeypatch.setenv("SCHEDULER_SERVICE_ACCOUNT", "discovery-scheduler@proj.iam.gserviceaccount.com")
+    monkeypatch.setenv("SCHEDULER_SERVICE_ACCOUNT", "nua-scheduler@proj.iam.gserviceaccount.com")
     seen = []
 
     def verify(token, request, audience=None, **kw):
         seen.append(token)
         if token != "good" and token != "wrong-sa":
             raise ValueError("bad token")
-        email = "discovery-scheduler@proj.iam.gserviceaccount.com" if token == "good" else "someone@else.com"
+        email = "nua-scheduler@proj.iam.gserviceaccount.com" if token == "good" else "someone@else.com"
         return {"aud": "https://receiver.example.run.app", "email": email, "email_verified": True}
 
     monkeypatch.setattr(id_token, "verify_oauth2_token", verify)
@@ -946,7 +946,7 @@ def test_processor_failure_is_500_until_the_final_attempt(sctx, monkeypatch):
 
 @pytest.mark.parametrize("transcript, button", [("transcripts/a.md", True), ("transcripts/" + "a" * 2100 + ".md", False)])
 def test_final_attempt_without_a_repo_alerts_ops_and_fits_the_rerun_button(monkeypatch, transcript, button):
-    import discovery.slackio
+    import nua.slackio
 
     posts = []
 
@@ -962,9 +962,9 @@ def test_final_attempt_without_a_repo_alerts_ops_and_fits_the_rerun_button(monke
         raise RuntimeError("GitHub is down")
 
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
-    monkeypatch.delenv("DISCOVERY_OPS_CHANNEL", raising=False)
-    monkeypatch.delenv("DISCOVERY_SLACK_TEST", raising=False)
-    monkeypatch.setattr(discovery.slackio, "SlackWebIO", Web)
+    monkeypatch.delenv("NUA_OPS_CHANNEL", raising=False)
+    monkeypatch.delenv("NUA_SLACK_TEST", raising=False)
+    monkeypatch.setattr(nua.slackio, "SlackWebIO", Web)
     client = TestClient(main.create_processor_app(no_repo), raise_server_exceptions=False)
     r = client.post("/task/process_call", json={"transcript": transcript}, headers={"X-CloudTasks-TaskRetryCount": "4"})
     assert r.status_code == 200 and r.json()["final"] is True
@@ -980,9 +980,9 @@ def test_final_attempt_without_a_repo_alerts_ops_and_fits_the_rerun_button(monke
 
 @pytest.mark.parametrize("ops_channel", [None, "#discovery-ops-prod"])
 def test_final_attempt_without_a_repo_goes_to_the_test_channel_in_slack_test_mode(monkeypatch, ops_channel):
-    # DISCOVERY_SLACK_TEST=1 sends every Slack post to #discovery-test, this one included (staging must never
+    # NUA_SLACK_TEST=1 sends every Slack post to #discovery-test, this one included (staging must never
     # reach the production ops channel).
-    import discovery.slackio
+    import nua.slackio
 
     posts = []
 
@@ -998,12 +998,12 @@ def test_final_attempt_without_a_repo_goes_to_the_test_channel_in_slack_test_mod
         raise RuntimeError("GitHub is down")
 
     monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
-    monkeypatch.setenv("DISCOVERY_SLACK_TEST", "1")
+    monkeypatch.setenv("NUA_SLACK_TEST", "1")
     if ops_channel:
-        monkeypatch.setenv("DISCOVERY_OPS_CHANNEL", ops_channel)
+        monkeypatch.setenv("NUA_OPS_CHANNEL", ops_channel)
     else:
-        monkeypatch.delenv("DISCOVERY_OPS_CHANNEL", raising=False)
-    monkeypatch.setattr(discovery.slackio, "SlackWebIO", Web)
+        monkeypatch.delenv("NUA_OPS_CHANNEL", raising=False)
+    monkeypatch.setattr(nua.slackio, "SlackWebIO", Web)
     client = TestClient(main.create_processor_app(no_repo), raise_server_exceptions=False)
     client.post("/task/process_call", json={"transcript": "transcripts/a.md"}, headers={"X-CloudTasks-TaskRetryCount": "4"})
     assert posts == ["#discovery-test"]
@@ -1013,12 +1013,12 @@ def test_processor_runs_the_real_runner(sctx, monkeypatch):
     import sys
     import types
 
-    import discovery
+    import nua
 
-    mod = types.ModuleType("discovery.backcheck")
+    mod = types.ModuleType("nua.backcheck")
     mod.backcheck = lambda ctx, payload=None: {"entries": ["B-001"], "digests_updated": 3}
-    monkeypatch.setitem(sys.modules, "discovery.backcheck", mod)
-    monkeypatch.setattr(discovery, "backcheck", mod, raising=False)
+    monkeypatch.setitem(sys.modules, "nua.backcheck", mod)
+    monkeypatch.setattr(nua, "backcheck", mod, raising=False)
     client = TestClient(main.create_processor_app(lambda: sctx))
     r = client.post("/task/backcheck", content=b"")
     assert r.json() == {"ok": True, "kind": "backcheck", "result": {"entries": ["B-001"], "digests_updated": 3}}
@@ -1036,7 +1036,7 @@ def test_create_app_picks_the_role(monkeypatch):
 # ---------- settings ----------
 
 def test_build_ctx_local_reads_the_repo_and_runs_tasks_inline(tmp_repo, monkeypatch):
-    monkeypatch.setenv("DISCOVERY_REPO_ROOT", str(tmp_repo))
+    monkeypatch.setenv("NUA_REPO_ROOT", str(tmp_repo))
     ctx = settings.build_ctx("local")
     assert ctx.repo.root == tmp_repo
     assert isinstance(ctx.remote, NullRemote)
@@ -1058,7 +1058,7 @@ def test_build_ctx_rejects_unknown_roles_and_missing_settings(monkeypatch):
 def test_receiver_pulls_the_clone_only_when_it_is_stale(tmp_repo, monkeypatch):
     """No background sync: a repo route pulls first when the clone is older than RECEIVER_SYNC_SECONDS.
     The processor pulls before every task."""
-    from discovery.ports import FakeSlack, RecordingQueue
+    from nua.ports import FakeSlack, RecordingQueue
 
     for name in ("REPO_SLUG", "GITHUB_APP_ID", "GITHUB_APP_INSTALLATION_ID", "GITHUB_APP_PRIVATE_KEY",
                  "GCP_PROJECT", "TASKS_LOCATION", "PROCESSOR_URL", "TASKS_SERVICE_ACCOUNT"):
@@ -1082,7 +1082,7 @@ def test_receiver_pulls_the_clone_only_when_it_is_stale(tmp_repo, monkeypatch):
     settings.build_ctx("processor")
     assert syncs == [1, 1]
     import threading
-    assert not any(t.name == "discovery-repo-sync" for t in threading.enumerate())
+    assert not any(t.name == "nua-repo-sync" for t in threading.enumerate())
 
 
 def test_a_failed_pull_on_the_receiver_reads_the_last_good_tree(tmp_repo, monkeypatch):
@@ -1101,7 +1101,7 @@ def test_a_failed_pull_on_the_receiver_reads_the_last_good_tree(tmp_repo, monkey
 
 def test_the_queue_is_built_on_the_first_enqueue_only(monkeypatch):
     """A click that only opens a form never loads Cloud Tasks (grpc)."""
-    from discovery.ports import RecordingQueue
+    from nua.ports import RecordingQueue
 
     for name in ("GCP_PROJECT", "TASKS_LOCATION", "PROCESSOR_URL", "TASKS_SERVICE_ACCOUNT"):
         monkeypatch.setenv(name, "x")
@@ -1125,8 +1125,8 @@ def test_the_queue_is_built_on_the_first_enqueue_only(monkeypatch):
 
 
 def test_slack_test_mode_sends_everything_to_the_test_channel(tmp_repo, monkeypatch):
-    monkeypatch.setenv("DISCOVERY_REPO_ROOT", str(tmp_repo))
-    monkeypatch.setenv("DISCOVERY_SLACK_TEST", "1")
+    monkeypatch.setenv("NUA_REPO_ROOT", str(tmp_repo))
+    monkeypatch.setenv("NUA_SLACK_TEST", "1")
     ctx = settings.build_ctx("local")
     assert ctx.channel("calls") == ctx.channel("ops") == ctx.channel("test") == "#discovery-test"
 
@@ -1139,7 +1139,7 @@ def test_recorder_clients_come_from_env(tmp_repo, monkeypatch):
     monkeypatch.setenv("CIRCLEBACK_API_KEY_ALEX", "cb_x")
     monkeypatch.delenv("CIRCLEBACK_API_KEY_SAM", raising=False)
     monkeypatch.delenv("CIRCLEBACK_API_KEY_JORDAN", raising=False)
-    from discovery import config
+    from nua import config
     clients = settings.circleback_clients(config.load(tmp_repo))
     assert list(clients) == ["alex"]
 

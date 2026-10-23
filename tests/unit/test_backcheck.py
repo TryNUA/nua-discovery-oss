@@ -1,15 +1,15 @@
-"""Tests for discovery/backcheck.py: re-running verdicts on past digests for new entry versions. Offline."""
+"""Tests for nua/backcheck.py: re-running verdicts on past digests for new entry versions. Offline."""
 from __future__ import annotations
 
 import re
 
 import pytest
 
-from discovery import backcheck as bc
-from discovery import beliefs as bl
-from discovery import digest as dg
-from discovery.llm import FakeLLM, LLMError
-from discovery.types import BeliefCheck, Claim, Digest, Entry, HistoryLine, Scope
+from nua import backcheck as bc
+from nua import beliefs as bl
+from nua import digest as dg
+from nua.llm import FakeLLM, LLMError
+from nua.types import BeliefCheck, Claim, Digest, Entry, HistoryLine, Scope
 
 DARIUS = "2026-09-23_darius-kemp"
 VIKTOR = "2026-09-30_viktor-lang"
@@ -274,7 +274,7 @@ def charging(ctx, models, usd: float):
 
 
 def test_cost_cap_commits_finished_digests_stops_new_calls_and_reraises(ctx, models, monkeypatch):
-    from discovery.llm import CostCapExceeded, CostTracker
+    from nua.llm import CostCapExceeded, CostTracker
     monkeypatch.setattr(bc, "CONCURRENCY", 1)             # one digest at a time, so the count is exact
     write_state(ctx, [SMALL], many_digests(10))
     models["rules"] += [("B-001", "overwrit", "supports")]

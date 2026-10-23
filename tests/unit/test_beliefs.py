@@ -1,9 +1,9 @@
-"""Tests for discovery/beliefs.py: beliefs.md and decisions.md read/write and the history-line grammar."""
+"""Tests for nua/beliefs.py: beliefs.md and decisions.md read/write and the history-line grammar."""
 from __future__ import annotations
 
 import pytest
 
-from discovery.beliefs import (
+from nua.beliefs import (
     EMPTY_BELIEFS,
     BeliefsDoc,
     format_history,
@@ -15,7 +15,7 @@ from discovery.beliefs import (
     render_beliefs,
     render_decisions,
 )
-from discovery.types import Decision, Entry, HistoryLine, Scope
+from nua.types import Decision, Entry, HistoryLine, Scope
 
 # A beliefs.md example in the shape docs/SPEC.md shows, with quotes from the darius-kemp fixture.
 SPEC_EXAMPLE = """## Beliefs

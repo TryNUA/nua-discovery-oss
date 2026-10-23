@@ -1,4 +1,4 @@
-"""Combining findings across extraction models (discovery/merge.py): the consolidation call, its validation,
+"""Combining findings across extraction models (nua/merge.py): the consolidation call, its validation,
 and the quote-overlap merge it falls back to."""
 from __future__ import annotations
 
@@ -7,10 +7,10 @@ from dataclasses import replace
 
 import pytest
 
-from discovery import merge
-from discovery.llm import FakeLLM, LLMError
-from discovery.merge import merge_claims, pick_quotes, span_overlap
-from discovery.types import Claim, Flags, Quote, Scope
+from nua import merge
+from nua.llm import FakeLLM, LLMError
+from nua.merge import merge_claims, pick_quotes, span_overlap
+from nua.types import Claim, Flags, Quote, Scope
 
 
 def claim(start: int, end: int, *, model: str = "fake:a", text: str = "a claim", **scope) -> Claim:

@@ -1,4 +1,4 @@
-"""Tests for discovery/apply.py: belief changes from request files, Slack clicks and roll-up proposals. Offline."""
+"""Tests for nua/apply.py: belief changes from request files, Slack clicks and roll-up proposals. Offline."""
 from __future__ import annotations
 
 import hashlib
@@ -7,13 +7,13 @@ import pytest
 import yaml
 
 from conftest import ROOT, fixture_text
-from discovery import apply as ap
-from discovery import beliefs as bl
-from discovery import digest as dg
-from discovery.parse import parse
-from discovery.ports import NullRemote
-from discovery.types import Claim, Digest, Scope
-from discovery.verify import QuoteIndex
+from nua import apply as ap
+from nua import beliefs as bl
+from nua import digest as dg
+from nua.parse import parse
+from nua.ports import NullRemote
+from nua.types import Claim, Digest, Scope
+from nua.verify import QuoteIndex
 
 DARIUS = "2026-09-23_darius-kemp"
 VIKTOR = "2026-09-30_viktor-lang"
@@ -69,7 +69,7 @@ def doc(ctx) -> bl.BeliefsDoc:
 
 
 def notices(ctx) -> list[dict]:
-    return [m for m in ctx.slack.live(CALLS) if m["thread_ts"] is None and (m["metadata"] or {}).get("event_type") == "discovery_ref"]
+    return [m for m in ctx.slack.live(CALLS) if m["thread_ts"] is None and (m["metadata"] or {}).get("event_type") == "nua_ref"]
 
 
 def load_yaml(ctx, rel: str):
@@ -151,7 +151,7 @@ def test_add_from_a_request_file(ctx, base, regenerated):
     assert state == {"last_change": {"ref": ref, "at": "2026-10-01T09:00:00-07:00"}}
     [notice] = notices(ctx)
     assert notice["text"].startswith("Sam added B-005 via agent")
-    assert notice["metadata"] == {"event_type": "discovery_ref", "event_payload": {"key": ref}}
+    assert notice["metadata"] == {"event_type": "nua_ref", "event_payload": {"key": ref}}
     assert ap.ref_recorded(ctx, ref)
 
 
@@ -304,7 +304,7 @@ def test_keep_is_for_beliefs_only(ctx, base):
 
 def read_on(ctx, d: Digest, target: str, quote: str) -> None:
     """Give the claim holding `quote` a contradicts read on `target` (what a Wrong read dismisses)."""
-    from discovery.types import BeliefCheck
+    from nua.types import BeliefCheck
     claim = next(c for c in d.claims if c.quote == quote)
     d.belief_checks.append(BeliefCheck(target=target, verdict="contradicts", claims=[claim.id], decided_by="agree"))
     dg.write_digest(ctx.repo, d)
@@ -596,8 +596,8 @@ def test_dismiss_verdict_records_the_verdict_it_dismisses(ctx, base):
 
 def test_a_wrong_read_dismissal_leaves_a_later_supports_read_counted(ctx, base):
     """After a Reword the backcheck's read of the same claim is new evidence (SPEC "Under pressure")."""
-    from discovery import indexes
-    from discovery.types import BeliefCheck
+    from nua import indexes
+    from nua.types import BeliefCheck
     darius = base["darius"]
     attorney = next(c for c in darius.claims if c.quote == ATTORNEY)
     darius.belief_checks = [BeliefCheck(target="B-003", verdict="contradicts", claims=[attorney.id], decided_by="agree")]
@@ -636,8 +636,8 @@ def attorney_models(ctx, monkeypatch) -> None:
     """Both extractors read the attorney claim as contradicting B-003; nothing else."""
     import re
 
-    from discovery import backcheck as bc
-    from discovery.llm import FakeLLM
+    from nua import backcheck as bc
+    from nua.llm import FakeLLM
 
     def respond(system, prompt, schema):
         checks = []
@@ -654,7 +654,7 @@ def attorney_models(ctx, monkeypatch) -> None:
 
 
 def b003_contradictions(ctx) -> list[str]:
-    from discovery import indexes
+    from nua import indexes
     darius = dg.read_digest(ctx.repo, dg.digest_path(DARIUS))
     status = indexes.entry_status(doc(ctx).get("B-003"), [darius], indexes.load_verdict_overrides(ctx.repo), ctx.config)
     return [i["quote"] for i in status.contradicts]
@@ -663,7 +663,7 @@ def b003_contradictions(ctx) -> list[str]:
 def test_a_wrong_read_between_a_reword_and_its_backcheck_leaves_the_new_read_counted(ctx, base, monkeypatch):
     """The dismissal records the version the read was checked against (SPEC "Under pressure"), not the
     entry's new version, so the backcheck's read of the new wording still counts."""
-    from discovery import backcheck as bc
+    from nua import backcheck as bc
 
     checked_everywhere(ctx, base)
     v1 = doc(ctx).get("B-003").version
@@ -687,7 +687,7 @@ def test_a_wrong_read_on_a_brief_checked_against_older_wording_is_stale(ctx, bas
     """A brief posted before a Reword keeps a live Wrong read button carrying the version its read was
     checked against. Once the backcheck re-read the call against the new wording, the click would hide
     the new read, so it is answered as stale and nothing is recorded."""
-    from discovery import backcheck as bc
+    from nua import backcheck as bc
 
     checked_everywhere(ctx, base)
     v1 = doc(ctx).get("B-003").version
@@ -750,7 +750,7 @@ class FreshSlack:
 def test_outcomes_on_one_top_message_do_not_revert_each_other(ctx, base):
     """Two Wrong read buttons on a brief's top message: each outcome is written onto the message as it
     is now, not onto the blocks carried from click time."""
-    from discovery import interact
+    from nua import interact
     darius = base["darius"]
     read_on(ctx, darius, "B-001", AI_RULES)
     read_on(ctx, darius, "B-003", ATTORNEY)
@@ -857,7 +857,7 @@ FIELD = ("So I get an investigator out to the location inside those three days t
 
 def darius_from(ctx, raw: str, claims: list[tuple[str, str, int]], *, checks=()) -> Digest:
     """Re-digest DARIUS from `raw` (a richer copy): claims are (text, quote, occurrence of the quote)."""
-    from discovery.types import BeliefCheck
+    from nua.types import BeliefCheck
     rel = "transcripts/darius-kemp-richer.md"
     ctx.repo.write(rel, raw)
     index = QuoteIndex(parse(rel, raw, commit_date="2026-10-04"))

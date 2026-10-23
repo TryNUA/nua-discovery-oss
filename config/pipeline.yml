@@ -13,7 +13,7 @@ ask_map: gemini:gemini-3.1-flash-lite
 ask_reduce: gemini:gemini-3.1-pro-preview
 rollup: gemini:gemini-3.1-pro-preview
 
-# Bump by hand when discovery/prompts/extract.py, consolidate.py, verdict.py, arbiter.py or any model id changes.
+# Bump by hand when nua/prompts/extract.py, consolidate.py, verdict.py, arbiter.py or any model id changes.
 prompt_version: v1
 
 # Go-live timestamp with offset, e.g. 2026-11-02T09:00:00-08:00. Recorder items from before it are ignored

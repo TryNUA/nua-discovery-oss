@@ -76,7 +76,7 @@ resource "google_cloud_run_v2_service" "processor" {
   depends_on = [google_secret_manager_secret_iam_member.reader]
 }
 
-# Only Cloud Tasks (as discovery-tasks) may call the processor.
+# Only Cloud Tasks (as nua-tasks) may call the processor.
 resource "google_cloud_run_v2_service_iam_member" "processor_invoker_tasks" {
   count = local.services_on ? 1 : 0
 

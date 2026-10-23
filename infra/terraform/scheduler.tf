@@ -1,5 +1,5 @@
-# Cloud Scheduler jobs, all in America/Los_Angeles, all POSTing to the receiver with an OIDC token
-# signed as discovery-scheduler and addressed to the receiver's URL (the receiver checks both). Created only
+# Cloud Scheduler jobs, all in var.time_zone, all POSTing to the receiver with an OIDC token
+# signed as nua-scheduler and addressed to the receiver's URL (the receiver checks both). Created only
 # with the services (stage 2).
 #
 # Terraform owns whether a job runs: `schedules_on` (variables.tf) runs every job with `scheduled = true`
@@ -11,9 +11,9 @@
 
 locals {
   scheduler_jobs = {
-    sweep            = { scheduled = true, schedule = "0 2 * * *", path = "/sweep", body = "{}", description = "Nightly safety-net sweep, 2am PT" }
+    sweep            = { scheduled = true, schedule = "0 2 * * *", path = "/sweep", body = "{}", description = "Nightly safety-net sweep, 2am ${local.time_zone}" }
     sweep-granola    = { scheduled = true, schedule = "30 * * * *", path = "/sweep", body = "{\"granola_only\": true}", description = "Hourly Granola-only sweep at :30, for notes a webhook missed" }
-    rollup           = { scheduled = true, schedule = "0 8 * * 1", path = "/rollup", body = "{}", description = "Weekly roll-up, Mondays 8am PT" }
+    rollup           = { scheduled = true, schedule = "0 8 * * 1", path = "/rollup", body = "{}", description = "Weekly roll-up, Mondays 8am ${local.time_zone}" }
     rollup-bootstrap = { scheduled = false, schedule = "0 0 1 1 *", path = "/rollup", body = "{\"bootstrap\": true}", description = "Bootstrap roll-up; run by hand after a backfill, never scheduled" }
   }
 }

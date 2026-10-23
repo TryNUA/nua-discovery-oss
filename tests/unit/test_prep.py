@@ -1,12 +1,12 @@
-"""Tests for discovery/prep.py: template validation, parsing, loading and matching prep files."""
+"""Tests for nua/prep.py: template validation, parsing, loading and matching prep files."""
 from __future__ import annotations
 
 import pytest
 
-from discovery import config as config_mod
-from discovery.ports import RepoFS
-from discovery.prep import load_preps, match_prep, parse_prep, validate_prep
-from discovery.types import PrepFile
+from nua import config as config_mod
+from nua.ports import RepoFS
+from nua.prep import load_preps, match_prep, parse_prep, validate_prep
+from nua.types import PrepFile
 
 GOOD = """---
 planned_date: 2026-10-02

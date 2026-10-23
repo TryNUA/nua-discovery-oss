@@ -10,3 +10,9 @@ __pycache__/
 *.tfstate.*
 terraform.tfvars
 *.tfplan
+# The setup page (setup-ui/, built into nua/setup/static/): Node deps and build output stay local.
+setup-ui/node_modules/
+setup-ui/.next/
+setup-ui/out/
+# `nua setup` keeps local choices here (cloud, recorder, repo); no secrets.
+.nua-setup.json

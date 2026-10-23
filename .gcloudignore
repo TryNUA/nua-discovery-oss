@@ -5,7 +5,9 @@
 /*
 !/pyproject.toml
 !/uv.lock
-!/discovery/
+!/nua/
 !/service/
 __pycache__/
 *.pyc
+# The setup page's static build (`nua setup` runs it locally); the services never serve it.
+/nua/setup/static/

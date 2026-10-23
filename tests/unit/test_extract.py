@@ -1,14 +1,14 @@
-"""Tests for discovery/extract.py with FakeLLM extractors. Offline."""
+"""Tests for nua/extract.py with FakeLLM extractors. Offline."""
 from __future__ import annotations
 
 import time
 
 import pytest
 
-from discovery import extract as ex
-from discovery.llm import FakeLLM, LLMError
-from discovery.prompts import extract as extract_prompt
-from discovery.types import Attendee, Claim, ParsedTranscript, Quote, Turn
+from nua import extract as ex
+from nua.llm import FakeLLM, LLMError
+from nua.prompts import extract as extract_prompt
+from nua.types import Attendee, Claim, ParsedTranscript, Quote, Turn
 
 EM_DASH = chr(0x2014)
 
@@ -166,7 +166,7 @@ def test_missing_key_counts_as_a_failed_extractor(ctx, monkeypatch):
     def no_key(spec, cost=None):
         raise LLMError(f"no key for {spec}")
 
-    monkeypatch.setattr("discovery.providers.build", no_key)
+    monkeypatch.setattr("nua.providers.build", no_key)
     results, degraded = ex.extract(ctx, DARIUS)
     assert degraded == ["one_model"] and results[0].model == specs[0]
 
@@ -268,7 +268,7 @@ def test_extract_prompt_rules():
 
 
 def test_short_answer_rule_allows_the_quote_s_own_turn_on_a_one_block_call():
-    # a Granola text export parses to one turn, T1, so no earlier turn exists (discovery/verify.py QuoteIndex.answers)
+    # a Granola text export parses to one turn, T1, so no earlier turn exists (nua/verify.py QuoteIndex.answers)
     for name in ("EXTRACT", "REPAIR"):
         body = getattr(extract_prompt, name)
         assert "quote's own turn" in body and "single_stream" in body and "single turn T1" in body, name
@@ -318,7 +318,7 @@ def test_hung_extractor_degrades_to_the_other_model(ctx, monkeypatch):
 
 
 def test_model_step_timeout_outlasts_one_provider_call():
-    from discovery import providers
-    from discovery.runner import BUDGET_SECONDS
+    from nua import providers
+    from nua.runner import BUDGET_SECONDS
     # extraction and verdicts (each at most one step) fit the task budget with room to spare
     assert providers.MAX_CALL_SECONDS < ex.MODEL_STEP_SECONDS < BUDGET_SECONDS / 2

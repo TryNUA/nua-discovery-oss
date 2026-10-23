@@ -36,18 +36,23 @@ Receiver routes:
   for files added directly in transcripts/ (one backfill task when more than 5) and requests/, and reindex
   when config/overrides.yml changed. Files added in a subfolder of transcripts/ are not processed (the
   pipeline reads transcripts/ flat); #discovery-ops is told to move them up.
-- POST /slack/interact: verify the Slack signature (401 when wrong), then discovery.interact (lock the clicked
+- POST /slack/interact: verify the Slack signature (401 when wrong), then nua.interact (lock the clicked
   block through response_url, enqueue, or open a form pre-filled from the payload), all before the
   response.
 - POST /slack/events: verify the Slack signature (401 when wrong); answer Slack's url_verification
   challenge; for an `app_mention` ("@<bot> <question>"), reply "on it" in the thread and queue an
-  `ask` task named after the event id (discovery.slack_ask), all before the response. Other events, the bot's
+  `ask` task named after the event id (nua.slack_ask), all before the response. Other events, the bot's
   own messages and Slack's retries of an event already queued are acknowledged and ignored.
-- POST /sweep, POST /rollup: verify the Cloud Scheduler OIDC token (skipped only with DISCOVERY_DEV=1), enqueue.
+- POST /sweep, POST /rollup: verify the Cloud Scheduler OIDC token (skipped only with NUA_DEV=1), enqueue.
 
 Processor route:
-- POST /task/{kind}: run the task with discovery.runner; X-CloudTasks-TaskRetryCount says which attempt this is.
+- POST /task/{kind}: run the task with nua.runner; X-CloudTasks-TaskRetryCount says which attempt this is.
   500 asks Cloud Tasks to retry; 200 ends the task (success, or a final failure already reported).
+
+On AWS (docs/self-hosting-aws.md) the same receiver app runs on Lambda behind the Lambda Web Adapter,
+and service/worker.py takes the processor's place: it reads tasks from SQS and runs each through `_run`.
+The scheduler routes are unused there (EventBridge Scheduler writes to SQS directly) and refuse every
+call, since no SCHEDULER_SERVICE_ACCOUNT is set.
 """
 from __future__ import annotations
 
@@ -64,12 +69,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from discovery import interact, runner, settings
-from discovery.context import Ctx
-from discovery.rules import as_datetime
-from discovery.tasks import task_name
+from nua import interact, runner, settings
+from nua.context import Ctx
+from nua.rules import as_datetime
+from nua.tasks import task_name
 
-log = logging.getLogger("discovery.service")
+log = logging.getLogger("nua.service")
 
 GRANOLA_EVENTS = ("note.generated", "note.access_granted", "note.edited")
 DISCOVERY_TAG = "discovery"
@@ -103,7 +108,7 @@ def verify_scheduler_token(authorization: str | None, audiences: list[str], serv
     if not authorization or not authorization.lower().startswith("bearer "):
         return False
     if not service_account:
-        log.error("SCHEDULER_SERVICE_ACCOUNT is not set; refusing scheduler calls (set DISCOVERY_DEV=1 locally)")
+        log.error("SCHEDULER_SERVICE_ACCOUNT is not set; refusing scheduler calls (set NUA_DEV=1 locally)")
         return False
     token = authorization.split(" ", 1)[1].strip()
     from google.auth.transport import requests as google_requests
@@ -134,7 +139,7 @@ def create_receiver_app(ctx_factory: CtxFactory, *, ack: AckFactory | None = Non
     circleback_factory = circleback or settings.circleback_client
     ack_factory = ack or settings.ack_ctx
 
-    app = FastAPI(title="discovery receiver", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="nua receiver", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/healthz")
     def health() -> dict:
@@ -183,7 +188,7 @@ def create_receiver_app(ctx_factory: CtxFactory, *, ack: AckFactory | None = Non
 
     @app.post("/slack/interact")
     async def slack_interact(request: Request):
-        from discovery.slackio import verify_slack_signature
+        from nua.slackio import verify_slack_signature
 
         body = await request.body()
         try:
@@ -202,7 +207,7 @@ def create_receiver_app(ctx_factory: CtxFactory, *, ack: AckFactory | None = Non
 
     @app.post("/slack/events")
     async def slack_events(request: Request):
-        from discovery.slackio import verify_slack_signature
+        from nua.slackio import verify_slack_signature
 
         body = await request.body()
         try:
@@ -276,7 +281,7 @@ def _enqueue(ack_factory: AckFactory, kind: str, payload: dict) -> dict:
 
 
 def _slack_ask(ack_factory: AckFactory, event: dict, event_id: str) -> dict:
-    from discovery.slack_ask import queue_from_event
+    from nua.slack_ask import queue_from_event
 
     return queue_from_event(ack_factory(), event, event_id)
 
@@ -288,7 +293,7 @@ def _interact(ack_factory: AckFactory, payload: dict) -> dict | None:
 # ---------- ingest ----------
 
 def _granola(ctx_factory: CtxFactory, granola_factory: Callable[[], Any], headers: dict, body: bytes) -> dict:
-    from discovery.ingest.granola import has_transcript, note_to_standard, verify_webhook
+    from nua.ingest.granola import has_transcript, note_to_standard, verify_webhook
 
     secret = settings.env("GRANOLA_WEBHOOK_SECRET")
     if not secret or not verify_webhook(secret, headers, body):
@@ -309,7 +314,7 @@ def _granola(ctx_factory: CtxFactory, granola_factory: Callable[[], Any], header
         raise IngestError("GRANOLA_API_KEY is not set")
 
     note = client.get_note(note_id)
-    from discovery.ingest.granola import note_time
+    from nua.ingest.granola import note_time
 
     t = note_time(note)
     if t is not None and t < cutoff:       # created and scheduled before the cutoff (see note_time)
@@ -336,7 +341,7 @@ def _granola_edited(ctx: Ctx, note: dict) -> dict:
     was lost), so it is enqueued again, like any redelivery. When a digest does, the event is a
     notes-only edit of a processed call and is ignored.
     """
-    from discovery.ingest.granola import note_to_standard, transcript_length
+    from nua.ingest.granola import note_to_standard, transcript_length
 
     note_id = note.get("id")
     first, _ = note_to_standard(note, config=ctx.config, version=1)
@@ -366,7 +371,7 @@ def _granola_edited(ctx: Ctx, note: dict) -> dict:
 
 def _granola_versions(ctx: Ctx, first: str) -> dict[int, str]:
     """version -> path for every stored copy of the note whose first version is `first`."""
-    from discovery.rules import note_version
+    from nua.rules import note_version
 
     note_id = note_version(first)[0]
     found: dict[int, str] = {}
@@ -381,13 +386,13 @@ def _digested(ctx: Ctx, rel: str) -> bool:
     """True when a digest or stub in the local clone points to `rel`, as process_call's skip check reads it.
     A stale clone can miss a new digest; that costs one extra enqueue, which the task name or
     process_call's skip check absorbs."""
-    from discovery.digest import digest_for_transcript, load_digests
+    from nua.digest import digest_for_transcript, load_digests
 
     return digest_for_transcript(load_digests(ctx.repo), rel) is not None
 
 
 def _stored_length(ctx: Ctx, rel: str) -> int:
-    from discovery.parse import ParseError, parse
+    from nua.parse import ParseError, parse
 
     try:
         return sum(len(t.text) for t in parse(rel, ctx.repo.read(rel)).turns)
@@ -397,7 +402,7 @@ def _stored_length(ctx: Ctx, rel: str) -> int:
 
 def _circleback(ctx_factory: CtxFactory, circleback_factory: Callable[[str], Any], person: str, signature: str,
                 body: bytes) -> dict:
-    from discovery.ingest.circleback import has_tag, has_transcript, payload_to_standard, verify_signature
+    from nua.ingest.circleback import has_tag, has_transcript, payload_to_standard, verify_signature
 
     secret = settings.env(settings.person_var("CIRCLEBACK_SIGNING_SECRET", person))
     if not secret or not verify_signature(secret, body, signature):
@@ -428,7 +433,7 @@ def _circleback(ctx_factory: CtxFactory, circleback_factory: Callable[[str], Any
 
 def _calendar_start(client: Any, payload: dict) -> str | None:
     """One calendar lookup for the meeting's scheduled start; None (use createdAt) when it fails."""
-    from discovery.ingest.circleback import find_start
+    from nua.ingest.circleback import find_start
 
     if client is None:
         return None
@@ -449,7 +454,7 @@ def _calendar_start(client: Any, payload: dict) -> str | None:
 def ingest_stamp(ctx: Ctx) -> str:
     """`ingested_at` for a transcript file written now (see rules.ingest_stamp). Files are create-only,
     so a redelivery never changes the stamp of the first delivery."""
-    from discovery.rules import ingest_stamp as stamp
+    from nua.rules import ingest_stamp as stamp
 
     return stamp(ctx.now(), ctx.config.pipeline.timezone)
 
@@ -470,11 +475,11 @@ def _enqueue_call(ctx: Ctx, rel: str, text: str, *, created: bool) -> dict:
 
 def _dup_delay(ctx: Ctx, rel: str, text: str) -> int:
     """15 minutes (dup_delay_minutes) when another teammate was invited, so a second recording can land."""
-    from discovery.parse import ParseError, parse
-    from discovery.rules import cofounder_invited
+    from nua.parse import ParseError, parse
+    from nua.rules import cofounder_invited
 
     try:
-        parsed = parse(rel, text)
+        parsed = parse(rel, text, tz=ctx.config.pipeline.timezone)
     except ParseError:
         return 0
     return int(ctx.config.pipeline.t("dup_delay_minutes")) * 60 if cofounder_invited(parsed, ctx.config) else 0
@@ -550,7 +555,7 @@ def _notify_nested(ctx: Ctx, paths: list[str]) -> None:
     if ctx.slack is None:
         return
     try:
-        from discovery.sweep import subfolder_notice
+        from nua.sweep import subfolder_notice
 
         text = subfolder_notice(paths)[:2900]
         ctx.slack.post(ctx.channel("ops"), [{"type": "section", "text": {"type": "mrkdwn", "text": text}}], text)
@@ -617,7 +622,7 @@ def _scheduler_ok(authorization: str | None, url: str) -> bool:
 
 def create_processor_app(ctx_factory: CtxFactory) -> FastAPI:
     """The private processor: POST /task/{kind} runs one task (Cloud Run IAM admits only Cloud Tasks)."""
-    app = FastAPI(title="discovery processor", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="nua processor", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/healthz")
     def health() -> dict:
@@ -627,7 +632,7 @@ def create_processor_app(ctx_factory: CtxFactory) -> FastAPI:
     async def task(kind: str, request: Request):
         payload = await _json_body(request)
         attempt = _int(request.headers.get("x-cloudtasks-taskretrycount"), 0)
-        max_attempts = _int(settings.env("DISCOVERY_TASK_MAX_ATTEMPTS"), 5)
+        max_attempts = _int(settings.env("NUA_TASK_MAX_ATTEMPTS"), 5)
         try:
             result = await run_in_threadpool(_run, ctx_factory, kind, payload, attempt, max_attempts)
         except Exception as e:
@@ -656,7 +661,7 @@ def _alert_without_ctx(kind: str, payload: dict, error: Exception, attempt: int,
     if not token:
         return
     try:
-        from discovery.slackio import SlackWebIO
+        from nua.slackio import SlackWebIO
 
         text = (f"Task failed: {kind}. Attempt {attempt + 1} of {max_attempts}. "
                 f"Could not load the repo: {type(error).__name__}: {error}")[:2900].replace(chr(0x2014), "-")
@@ -672,11 +677,11 @@ def _alert_without_ctx(kind: str, payload: dict, error: Exception, attempt: int,
 
 
 def _ops_channel_without_ctx() -> str:
-    """Where an alert goes when there is no config to read channels from. DISCOVERY_SLACK_TEST=1 sends it to
+    """Where an alert goes when there is no config to read channels from. NUA_SLACK_TEST=1 sends it to
     the test channel's default, as settings._test_channels does for every other post."""
-    if settings.env("DISCOVERY_SLACK_TEST") == "1":
+    if settings.env("NUA_SLACK_TEST") == "1":
         return "#discovery-test"
-    return settings.env("DISCOVERY_OPS_CHANNEL", "#discovery-ops")
+    return settings.env("NUA_OPS_CHANNEL", "#discovery-ops")
 
 
 def _int(value: str | None, default: int) -> int:
@@ -696,10 +701,14 @@ def _mcp_app():
 
 
 def create_app(role: str | None = None):
-    """The ASGI app for SERVICE_ROLE (default receiver). Contexts are built lazily, per request or task."""
+    """The ASGI app for SERVICE_ROLE (default receiver). Contexts are built lazily, per request or task.
+
+    On AWS Lambda the secrets are loaded here, once per cold start (settings.load_aws_secrets; a no-op
+    unless NUA_AWS_SECRETS is set), so a missing secret fails the start instead of a webhook."""
     role = role or settings.env("SERVICE_ROLE", "receiver")
     if settings.env("SERVICE_ROLE"):
         logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    settings.load_aws_secrets()
     if role == "processor":
         return create_processor_app(lambda: settings.build_ctx("processor"))
     if role == "mcp":

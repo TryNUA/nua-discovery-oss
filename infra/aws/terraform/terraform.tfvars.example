@@ -1,0 +1,42 @@
+# Copy to terraform.tfvars (gitignored) and fill in. No secret values belong here: secrets are added
+# with infra/aws/push-secrets.sh, so they never reach this file or Terraform state.
+
+region      = "us-west-2"
+repo_slug   = "owner/nua-discovery"
+repo_branch = "main"
+
+# The GitHub App needs the receiver URL, which exists only after stage 2. Leave these empty on the first
+# run; `uv run python -m nua github-app` fills them in (docs/self-hosting-aws.md, step 5).
+github_app_id              = ""
+github_app_installation_id = ""
+github_app_slug            = ""
+
+# Stage 1: leave empty. Stage 2: the image infra/aws/deploy.sh --build-only printed (bootstrap.sh sets it).
+image = ""
+# image = "123456789012.dkr.ecr.us-west-2.amazonaws.com/nua-images:20261023-120000-abc1234"
+
+# x86_64 or arm64 (about 20% cheaper on Fargate and Lambda). Change it before the first build.
+architecture = "x86_64"
+
+# Schedules (sweep, sweep-granola, rollup). Leave false until go-live is done.
+schedules_on = false
+time_zone    = "America/Los_Angeles" # must match timezone in config/pipeline.yml
+
+# Budget alert emails. Empty: none. The budget covers the whole account.
+budget_emails      = []
+monthly_budget_usd = 25
+
+# Staging: every Slack post goes to #discovery-test.
+slack_test_mode = false
+
+# Circleback, per person who records on it (keys from config/people.yml), e.g. ["alex", "sam"].
+# Empty: Granola only.
+circleback_people = []
+
+# Slack clicks after a quiet spell fail now and then: keep one receiver environment warm (cents a month).
+receiver_keep_warm = false
+
+# Worker size (1 vCPU, 2 GB) and how long it waits for work before scaling to zero.
+worker_cpu          = 1024
+worker_memory_mb    = 2048
+worker_idle_seconds = 120

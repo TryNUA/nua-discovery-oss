@@ -1,4 +1,4 @@
-# Discovery Base: spec
+# Nua Discovery: spec
 
 How the pipeline behaves. Code docstrings point into this file by section name (`SPEC "Nightly sweep"`), so the section headings stay stable.
 
@@ -59,7 +59,7 @@ Slack clicks/mentions ┤                     slack: lock the item, open forms, 
 Cloud Scheduler ──────┘                     sweep, rollup: enqueue
                                                         │
                                                         v
-                                            Cloud Tasks queue `discovery` (one task at a time)
+                                            Cloud Tasks queue `nua` (one task at a time)
                                                         │
                                                         v
                                             Cloud Run: processor (private)
@@ -76,7 +76,7 @@ Cloud Scheduler ──────┘                     sweep, rollup: enqueue
              claude.ai / Claude Code / Codex   (or a local clone)
 ```
 
-One container image is deployed as the Cloud Run services `discovery-receiver`, `discovery-processor` and, when switched on, `discovery-mcp`.
+One container image is deployed as the Cloud Run services `nua-receiver`, `nua-processor` and, when switched on, `nua-mcp`.
 
 ### Who writes what
 
@@ -85,7 +85,7 @@ One container image is deployed as the Cloud Run services `discovery-receiver`, 
 | Receiver | New transcript files only, through a create-only helper |
 | Processor | New transcript files (sweep, same helper); `digests/`; all generated indexes; `beliefs.md`; `config/themes.yml`, `config/proposals.yml`, `config/rejected.yml`, `config/verdict_overrides.yml`, `config/backcheck.yml`, `config/batches/`; deletes request files once handled |
 | MCP server (write tools, through the GitHub App) | `requests/`, `prep/`. It enqueues its own work, because `/github` ignores the app's pushes |
-| The team, directly or through an agent | `decisions.md`, `prep/`, `requests/`, `config/overrides.yml`, the hand-maintained configs (`domain.yml`, `people.yml`, `entities.yml`, `seats.yml`, `pipeline.yml`), the prompts in `discovery/prompts/`, the manual section of `open-questions.md` |
+| The team, directly or through an agent | `decisions.md`, `prep/`, `requests/`, `config/overrides.yml`, the hand-maintained configs (`domain.yml`, `people.yml`, `entities.yml`, `seats.yml`, `pipeline.yml`), the prompts in `nua/prompts/`, the manual section of `open-questions.md` |
 
 One exception: the empty `beliefs.md` is committed by hand once, when the repo is set up.
 
@@ -130,7 +130,7 @@ Ingest rules:
 - **Create-only write.** The transcript file is created through the GitHub Contents API with no `sha`, so it can never overwrite. A conflict or ref race is retried inside the 15s budget.
 - **Redelivery still enqueues.** If the file already exists, the receiver skips the write and still enqueues. Task idempotency (see Task types) makes the duplicate harmless.
 - **503 on any failure, never a 3xx or 4xx.** Granola treats most 4xx responses as permanent and drops the event. It retries 5xx for up to 4 days.
-- **Ingest cutoff.** Recorder items created before `ingest_cutoff` in `config/pipeline.yml` (a go-live timestamp with offset, e.g. `2026-11-02T09:00:00-08:00`) are acknowledged with 200 and ignored. Dropped exports cover everything before it. A date-only value (`2026-11-02`) means midnight Pacific (the pipeline `timezone`), for the receiver and the sweep alike. While `ingest_cutoff` is unset or unreadable, the receiver acknowledges every recorder item with 200 and ignores it, like the sweep, and logs an error: before go-live, dropped exports are the only source. Nothing is lost, because once the cutoff is set the sweep ingests every item created on or after it. A Granola note counts by the later of its creation and its calendar start: Granola creates a note when a meeting is opened ahead of time, so a call held after the cutoff can have a note created before it.
+- **Ingest cutoff.** Recorder items created before `ingest_cutoff` in `config/pipeline.yml` (a go-live timestamp with offset, e.g. `2026-11-02T09:00:00-08:00`) are acknowledged with 200 and ignored. Dropped exports cover everything before it. A date-only value (`2026-11-02`) means midnight in the configured time zone (`timezone` in `config/pipeline.yml`, default `America/Los_Angeles`), for the receiver and the sweep alike. While `ingest_cutoff` is unset or unreadable, the receiver acknowledges every recorder item with 200 and ignores it, like the sweep, and logs an error: before go-live, dropped exports are the only source. Nothing is lost, because once the cutoff is set the sweep ingests every item created on or after it. A Granola note counts by the later of its creation and its calendar start: Granola creates a note when a meeting is opened ahead of time, so a call held after the cutoff can have a note created before it.
 - **No transcript yet.** A recorder item with no transcript text (a Granola note still processing, a Circleback payload without a transcript) is acknowledged with 200 and ignored. No file is written, so the sweep ingests it once the text is there.
 - **`note.edited`.** Re-fetch the transcript. If it is longer than the stored one (someone hit Resume), create `transcripts/granola_<note_id>_v2.md` (or the next version) and enqueue it. A longer version of the same note supersedes the earlier one (see Duplicates). If it is the same length as the latest stored version and no digest points to that version yet, enqueue that version (a redelivery whose earlier enqueue was lost). Otherwise ignore the event.
 
@@ -158,7 +158,7 @@ recorded_by: alex
 attendees:
   - {name: Jane Doe, email: jane@example.com}
 speaker_labels: named         # named | me_them | diarized | single_stream
-ingested_at: 2026-09-23T16:41:10-07:00   # when the receiver or sweep created the file, Pacific
+ingested_at: 2026-09-23T16:41:10-07:00   # when the receiver or sweep created the file, in the configured time zone
 ---
 
 ## Recorder notes (context only, not evidence)
@@ -204,7 +204,7 @@ The digest records `origin`, and re-runs keep it. Only `live` calls ever get a b
 
 ### Call id
 
-- `call_id` is `YYYY-MM-DD_firstname-lastname`: the call date in Pacific time and the main external speaker. The processor assigns it after extraction. The receiver cannot know the contact for phone and in-person calls, where the API lists only the owner.
+- `call_id` is `YYYY-MM-DD_firstname-lastname`: the call date in the configured time zone (`timezone` in `config/pipeline.yml`, default `America/Los_Angeles`) and the main external speaker. The processor assigns it after extraction. The receiver cannot know the contact for phone and in-person calls, where the API lists only the owner.
 - A call with `date_source: unknown` gets `undated_firstname-lastname`.
 - A second call with the same person on the same day gets `-2`.
 - Stub digests (see below) use the transcript's filename stem as their call id. When a digest of another transcript already has that id (a drop named by this convention, such as `transcripts/2026-09-23_jane-doe.md`, next to the live call's digest), the stub takes the first free `<stem>-2`, `<stem>-3` and so on, so a stub never overwrites another call's digest.
@@ -212,7 +212,7 @@ The digest records `origin`, and re-runs keep it. Only `live` calls ever get a b
 
 ### Duplicates
 
-Two transcripts are the same call when (`ical_uid` equal and same Pacific date) or (`start` within 10 minutes and an overlapping external attendee email), or when they are versions of the same Granola note. An internal email (see Internal calls) never counts as the overlap: the recorder is on every call they record, so two ad-hoc calls one person took minutes apart stay separate.
+Two transcripts are the same call when (`ical_uid` equal and same date in the configured time zone) or (`start` within 10 minutes and an overlapping external attendee email), or when they are versions of the same Granola note. An internal email (see Internal calls) never counts as the overlap: the recorder is on every call they record, so two ad-hoc calls one person took minutes apart stay separate.
 - The richer copy wins: a later version of the same note beats an earlier one; otherwise `named` beats every other label type; on a tie, the first to arrive wins: by `ingested_at` when every tied copy has one, otherwise a copy that already has its own digest counts as first (files without a stamp predate it).
 - There is one digest per call. It lists the other copies under `duplicates:`, which counts as a digest pointing to them.
 - The duplicate check runs only on transcripts that no real (non-stub) digest names in its `transcript` field; a digest's own transcript always wins its own re-runs. A copy's own `failed` or `parse_failed` stub does not count, so a Re-run of a failed richer copy still supersedes under the same call id, and a losing copy's own stub is deleted in the commit that records it under the winner's `duplicates`. It compares against every transcript of the same call in the repo, digested or not. A copy that loses adds itself to the winner's digest or stub `duplicates` if the winner has already run, and otherwise stops; the winner lists every same-call copy when it runs.
@@ -225,7 +225,7 @@ A call is internal only if it lists **two or more** attendees and every one has 
 
 ### Nightly sweep
 
-Cloud Scheduler, 2am PT. The `sweep` task:
+Cloud Scheduler, 2am in the configured time zone. The `sweep` task:
 1. **Recorders:** lists every Granola note visible to the workspace key and every Circleback meeting tagged `discovery` for each person's key, created on or after `ingest_cutoff`. Compares `source_id`s against transcript front-matter in the repo and ingests anything missing through the create-only helper. Granola notes created up to 30 days before the cutoff but updated after it are fetched too, and taken when their call started after the cutoff.
 2. **Transcripts:** enqueues `process_call` for any transcript that no digest points to. Files in a subfolder of `transcripts/` are not processed; the ops summary names them until they are moved up.
 3. **Briefs:** re-posts the brief for any `live` call with `status: digested`, no `brief` recorded and either a call date in the last 48 hours or, at any age, a live copy under `duplicates` (a supersede whose brief update failed; the re-post finds the old top message through that copy's metadata).
@@ -243,7 +243,7 @@ An hourly Scheduler job (`sweep-granola`, at :30) runs the sweep with `granola_o
 
 ### Task types
 
-All tasks run on the processor, one at a time, from queue `discovery`. Delivery is at least once, and task names only block duplicates for a short while, so correctness rests on each task's own check:
+All tasks run on the processor, one at a time, from queue `nua`. Delivery is at least once, and task names only block duplicates for a short while, so correctness rests on each task's own check:
 
 | Task | Enqueued by | Skips when |
 |---|---|---|
@@ -259,7 +259,7 @@ All tasks run on the processor, one at a time, from queue `discovery`. Delivery 
 
 In this order:
 
-1. **Parse** (`discovery/parse.py`, plain code). Split the recorder notes from the transcript body, so quote checks never match the overview. Pull metadata from front-matter, a Granola footer or the filename. Number the turns. Input shapes: the standard format above; a Circleback copy (`[m:ss] **Name**: text` below an `#### Overview` block); a Granola text export (footer, then `Transcript:` and one block). An unrecognized shape gets a `parse_failed` stub and an error in `#discovery-ops`.
+1. **Parse** (`nua/parse.py`, plain code). Split the recorder notes from the transcript body, so quote checks never match the overview. Pull metadata from front-matter, a Granola footer or the filename. Number the turns. Input shapes: the standard format above; a Circleback copy (`[m:ss] **Name**: text` below an `#### Overview` block); a Granola text export (footer, then `Transcript:` and one block). An unrecognized shape gets a `parse_failed` stub and an error in `#discovery-ops`.
 2. **Origin:** `live` or `backfill`, from the transcript's front-matter.
 3. **Internal check.** Internal calls get a stub.
 4. **Duplicate check** (see Duplicates for when it runs). If this copy loses, record it under the winner's `duplicates` if the winner has run, then stop. If it wins and another copy already has a digest, continue as a supersede (unless that call is cited) and take over its call id.
@@ -268,7 +268,7 @@ In this order:
    - summary, 5 bullets max
    - findings (stored under `claims`): one point stated in `text`, backed by 1 to 3 quotes, each with its turn(s), `question_turn` for a short answer (8 words or fewer) and speaker; scope and flags per finding
 
-   A finding is material when it could change what the team believes or builds: how the work is done, who decides and buys, cost and time, pain, what was tried and why it failed, willingness to pay, market structure, or a disagreement with the team's assumptions. Personal career history and company trivia (funding, IPO plans, headcount) are not findings unless they change how the company buys or works; the person's role goes in the who fields. Statements that make one point become one finding with several quotes, from different parts of the call if need be. There is no target count. The prompt (`discovery/prompts/extract.py`) gives the reason for each rule and worked examples.
+   A finding is material when it could change what the team believes or builds: how the work is done, who decides and buys, cost and time, pain, what was tried and why it failed, willingness to pay, market structure, or a disagreement with the team's assumptions. Personal career history and company trivia (funding, IPO plans, headcount) are not findings unless they change how the company buys or works; the person's role goes in the who fields. Statements that make one point become one finding with several quotes, from different parts of the call if need be. There is no target count. The prompt (`nua/prompts/extract.py`) gives the reason for each rule and worked examples.
    - follow-ups, mentions, and up to 3 suggested next questions (`ask_next`)
 
    The first extractor listed in `config/pipeline.yml` is primary. Its who fields win, and it is the fallback when the other is down.
@@ -280,7 +280,7 @@ In this order:
    - A short answer must cite the turn of the question it answers in `question_turn`.
    - Each quote of a finding is checked on its own. A miss gets one repair request (for that quote) to the model that produced it. A second miss drops the quote and lists it under `verification.dropped`. A quote that lands on the span of an earlier quote of the same finding is folded into it. A finding is dropped only when none of its quotes survives (`verification.findings_dropped`).
    - The first-pass match rate is recorded, so a weak model or prompt shows up before repairs hide it.
-8. **Consolidate** (one model call, the arbiter's model; prompt `discovery/prompts/consolidate.py`). It gets both models' verified findings (ids, text, scope, flags, quotes) and returns groups: the input ids that make the same point, with one consolidated text, scope and flags per group. Two models often quote different sentences for the same point, which a span check cannot see. Code then builds each finding: the union of its members' verified quotes (overlapping quotes deduped, at most 3, preferring quotes from different parts of the call, in transcript order), `found_by` = the number of distinct extraction models among the members. The model never writes a quote. Every input finding lands in exactly one group: unknown ids are dropped, an id placed twice stays in its first group, and any id the model leaves out becomes a group of its own. If the call fails or replies with the wrong shape, the findings are merged by quote overlap instead (two findings from different models are the same when any of their quote spans overlap; the better-scoped one leads) and the digest gets `degraded: [no_consolidation]`. Findings found by one model are kept.
+8. **Consolidate** (one model call, the arbiter's model; prompt `nua/prompts/consolidate.py`). It gets both models' verified findings (ids, text, scope, flags, quotes) and returns groups: the input ids that make the same point, with one consolidated text, scope and flags per group. Two models often quote different sentences for the same point, which a span check cannot see. Code then builds each finding: the union of its members' verified quotes (overlapping quotes deduped, at most 3, preferring quotes from different parts of the call, in transcript order), `found_by` = the number of distinct extraction models among the members. The model never writes a quote. Every input finding lands in exactly one group: unknown ids are dropped, an id placed twice stays in its first group, and any id the model leaves out becomes a group of its own. If the call fails or replies with the wrong shape, the findings are merged by quote overlap instead (two findings from different models are the same when any of their quote spans overlap; the better-scoped one leads) and the digest gets `degraded: [no_consolidation]`. Findings found by one model are kept.
 9. **Match prep.** A prep file matches by attendee email first, then by contact name (after applying `config/entities.yml`), within 7 days of its `planned_date`. Only its `## Questions` list is used.
 10. **Verdicts** (both extraction models, one call each, over the consolidated findings). Each gets the findings with all their quotes, `beliefs.md`, the matched prep questions and surrounding turns. Each returns:
     - for every belief or Watching item a finding bears on: `supports`, `contradicts` or `scope_mismatch`, with finding ids and a one-line reason
@@ -513,7 +513,7 @@ Hand-edited, short. D-### ids are assigned by hand. Each decision lists the beli
 
 ### Weekly roll-up
 
-Cloud Scheduler, Mondays 8am PT, task `rollup`. One model (`rollup` in `config/pipeline.yml`) reads the claims since the last roll-up, all findings, the previous `config/themes.yml`, `beliefs.md`, `decisions.md`, seat counts from `calls.csv`, and `config/rejected.yml`. It first commits `config/themes.yml` (keeping existing theme names where it can, plus a `rollup` record with the roll-up's key, date, the calls it counted as new under `calls`, and `counted`: every call any roll-up has counted, so a call digested late, dated before the last roll-up, is still new exactly once) and `config/proposals.yml` (each proposal's id, type, statement, scope, sources, target and target version, status). It then posts a summary message to `#discovery-calls` with one thread reply per item. On a retry it reads the thread with `conversations.replies` and posts only the missing items:
+Cloud Scheduler, Mondays 8am in the configured time zone, task `rollup`. One model (`rollup` in `config/pipeline.yml`) reads the claims since the last roll-up, all findings, the previous `config/themes.yml`, `beliefs.md`, `decisions.md`, seat counts from `calls.csv`, and `config/rejected.yml`. It first commits `config/themes.yml` (keeping existing theme names where it can, plus a `rollup` record with the roll-up's key, date, the calls it counted as new under `calls`, and `counted`: every call any roll-up has counted, so a call digested late, dated before the last roll-up, is still new exactly once) and `config/proposals.yml` (each proposal's id, type, statement, scope, sources, target and target version, status). It then posts a summary message to `#discovery-calls` with one thread reply per item. On a retry it reads the thread with `conversations.replies` and posts only the missing items:
 
 1. **This week** (summary message): call count, contradictions, beliefs that went under pressure, Watching items that gained evidence.
 2. **Under pressure:** each such belief with its contradicting quotes and **Keep / Reword / Split / Retire**.
@@ -547,10 +547,10 @@ Handled by the receiver at `/slack/interact`, which answers within 3 seconds:
 
 ### Asking in Slack
 
-"@<bot_name> <question>" (`bot_name` in `config/domain.yml`, default "Discovery Base") in any channel the bot is in runs the same `ask` as the CLI (see Cross-call questions) and answers in the thread. Optional filters anywhere in the message: `since:YYYY-MM-DD` and `seat:"<seat>"`. Anyone in the channel may ask.
+"@<bot_name> <question>" (`bot_name` in `config/domain.yml`, default "Nua Discovery") in any channel the bot is in runs the same `ask` as the CLI (see Cross-call questions) and answers in the thread. Optional filters anywhere in the message: `since:YYYY-MM-DD` and `seat:"<seat>"`. Anyone in the channel may ask.
 
 - The receiver gets Slack's `app_mention` event at `/slack/events` (Event Subscriptions, bot event `app_mention`, scope `app_mentions:read`), verifies the signature and queues an `ask` task named after the event id (a bare mention gets the help text at once), so Slack's resend of an event it thinks was missed is a no-op. Like a click, this path never reads the repo.
-- The processor first routes the message with one cheap call (`discovery/prompts/route.py`, the `ask_map` model), reading the thread so far when the mention is a reply: a question about the calls is rewritten to stand alone and searched (below); "list beliefs" or "show B-007" is answered from `beliefs-status.md`, "list findings" from `findings.md`, with no search; anything else (a greeting, thanks, a question about the bot, a request it cannot carry out) gets a short reply. If the router call fails, a "?" or 3+ words is searched and anything else gets the help text.
+- The processor first routes the message with one cheap call (`nua/prompts/route.py`, the `ask_map` model), reading the thread so far when the mention is a reply: a question about the calls is rewritten to stand alone and searched (below); "list beliefs" or "show B-007" is answered from `beliefs-status.md`, "list findings" from `findings.md`, with no search; anything else (a greeting, thanks, a question about the bot, a request it cannot carry out) gets a short reply. If the router call fails, a "?" or 3+ words is searched and anything else gets the help text.
 - For a search, it says "On it", runs `ask` over every digest and posts one thread reply: the answer, the quotes it rests on (call id plus verbatim quote, unverified ones marked) and the coverage line. A bad `since` gets a reply saying so.
 - `ask` shares the one-at-a-time queue, so a question waits behind a call being processed, and the other way round.
 
@@ -607,7 +607,7 @@ Style: tight, no em dashes, lead with what changed.
 
 ### MCP server
 
-Experimental: built and tested, never run in production, and off by default (`deploy_mcp = true` in `infra/terraform` deploys it). A remote MCP server on its own Cloud Run service (`discovery-mcp`), added once as a connector in claude.ai (which also covers the phone app), Claude Code or Codex, so the team can use the base with no clone and no keys on their laptops.
+Experimental: built and tested, never run in production, and off by default (`deploy_mcp = true` in `infra/terraform` deploys it). A remote MCP server on its own Cloud Run service (`nua-mcp`), added once as a connector in claude.ai (which also covers the phone app), Claude Code or Codex, so the team can use the base with no clone and no keys on their laptops.
 
 - **Sign-in:** Google or GitHub OAuth, limited to the people in `config/people.yml`. Built on the Python MCP library (FastMCP) and its OAuth support. GitHub sign-in asks only for `read:user`, so someone who signed in under the broader `user` scope before signs in again, first revoking the OAuth app grant (GitHub Settings > Applications) if GitHub keeps handing back the old one.
 - **Time limit:** `ask` stops at 200 s by default (env `MCP_ASK_DEADLINE_SECONDS`), sized to claude.ai's 240 s per-call timeout. Cloud Run's 300 s service timeout is the outer bound.
@@ -643,7 +643,7 @@ Write tools:
 Through the connector, the AI calls `ask`. On a local clone, agents follow the reading order in `AGENTS.md` and run the same thing:
 
 ```
-uv run python -m discovery ask "what do adjusters say about how often store video is usable?" [--since 2026-09-01] [--seat "claims adjuster (staff)"]
+uv run python -m nua ask "what do adjusters say about how often store video is usable?" [--since 2026-09-01] [--seat "claims adjuster (staff)"]
 ```
 
 1. Map: digests with `status: digested`, in batches of about 20, go to a cheap model, 8 batches at a time. Each returns the relevant claims with quotes. Progress prints to stderr.
@@ -687,8 +687,8 @@ Infrastructure is Terraform in `infra/terraform/` (state in a GCS bucket created
   - `mcp`: experimental, not deployed by default (`infra/terraform` creates it only with `deploy_mcp = true`). When deployed: public, sign-in required, min 0 instances, max 1 instance, sign-in state on a Cloud Storage volume at `/oauth` (`FASTMCP_HOME`), 300s timeout (for `ask`).
   - `receiver`: public, 30s timeout, scales to zero (min 0 instances, max 1; one instance takes 40 requests at once), CPU only while a request is open (CPU throttling on), startup CPU boost. Slack's 3-second acknowledgement must hold on a cold start, so the receiver starts nothing at startup, keeps its imports light (git, recorder clients and model SDKs load inside the routes that use them; Cloud Tasks on the first enqueue), never touches the repo for Slack clicks, forms, `/sweep` or `/rollup`, and does all its work before it answers. Only the routes that read repo files (recorder ingest, `/github`) clone the repo, on first use, and pull again when the clone is older than 60 seconds; there is no background sync. A click after a long quiet spell can still miss the 3 seconds now and then (the person clicks again); that is accepted. If it happens often, keep one warm instance (`min_instance_count = 1` in `infra/terraform/cloud_run.tf`).
   - `processor`: private, 1800s timeout, invoker is the Cloud Tasks service account only. Same image.
-- **Cloud Tasks:** queue `discovery`, `maxConcurrentDispatches: 1`, `minBackoff: 60s`, `maxBackoff: 1800s`, `maxAttempts: 5`. `dispatchDeadline` is a per-task field, so one shared enqueue helper sets it to 1800s on every task.
-- **Cloud Scheduler**, all in `America/Los_Angeles`, all sending an OIDC token the receiver verifies. Every job is paused until go-live, when `schedules_on = true` in Terraform runs all of them except `rollup-bootstrap`:
+- **Cloud Tasks:** queue `nua`, `maxConcurrentDispatches: 1`, `minBackoff: 60s`, `maxBackoff: 1800s`, `maxAttempts: 5`. `dispatchDeadline` is a per-task field, so one shared enqueue helper sets it to 1800s on every task.
+- **Cloud Scheduler**, all in the Terraform `time_zone` variable (default `America/Los_Angeles`, kept equal to `timezone` in `config/pipeline.yml`), all sending an OIDC token the receiver verifies. Every job is paused until go-live, when `schedules_on = true` in Terraform runs all of them except `rollup-bootstrap`:
   - `sweep`: nightly 2am
   - `sweep-granola`: hourly at :30, `granola_only: true`
   - `rollup`: Mondays 8am
@@ -760,7 +760,7 @@ docs/
   SPEC.md  local-quickstart.md  self-hosting.md  slack-app-manifest.yml
 ```
 
-`prompt_version` covers `discovery/prompts/extract.py`, `discovery/prompts/consolidate.py`, `discovery/prompts/verdict.py`, `discovery/prompts/arbiter.py` and the model ids, and is bumped by hand when any of them change. Prompts are code: a change ships with the next deploy, not with a config commit.
+`prompt_version` covers `nua/prompts/extract.py`, `nua/prompts/consolidate.py`, `nua/prompts/verdict.py`, `nua/prompts/arbiter.py` and the model ids, and is bumped by hand when any of them change. Prompts are code: a change ships with the next deploy, not with a config commit.
 
 `reindex` also rewrites the front-matter of digests affected by `config/overrides.yml`, so agents reading digests directly and `ask` see the corrected values.
 
@@ -771,9 +771,9 @@ docs/
   - `tests/expected/brief_<fixture>.md` is a fixture's brief, against a test `beliefs.md`, a test `decisions.md` (D-002 resting on test B- entries) and a test prep file, all in `tests/golden/`.
   - Hand-label findings (1 to 3 quotes each) for the 4 fixtures in `tests/labels/`. A merged finding matches a labeled one when any of its quotes overlaps any labeled quote by at least 50% of the shorter span.
   - Use the 3 conflicts in `tests/expected/conflicts_first-four.md` as labeled verdict cases against the test `beliefs.md`.
-- **Bake-off:** `python -m discovery bakeoff [--models ...]`. Each model runs as extractor on the fixtures and as judge on the verdict cases. Scored on finding recall against labels (merged by quote overlap, no consolidation call), first-pass quote match rate, and verdict accuracy. The recall bar is fixed before the bake-off runs. The best judge becomes arbiter. Results go in `pipeline.yml`; the report is written to `docs/research/bakeoff-<date>.md`.
+- **Bake-off:** `python -m nua bakeoff [--models ...]`. Each model runs as extractor on the fixtures and as judge on the verdict cases. Scored on finding recall against labels (merged by quote overlap, no consolidation call), first-pass quote match rate, and verdict accuracy. The recall bar is fixed before the bake-off runs. The best judge becomes arbiter. Results go in `pipeline.yml`; the report is written to `docs/research/bakeoff-<date>.md`.
 - **Gate:** any change covered by `prompt_version` re-runs the golden set before it ships.
-- **Dry run:** `uv run python -m discovery run <transcript> --dry-run [--beliefs <path>] [--decisions <path>] [--prep <path>]` prints the digest and brief without committing or posting: the brief goes to stdout, then the digest to stderr. The golden set runs with the test files.
+- **Dry run:** `uv run python -m nua run <transcript> --dry-run [--beliefs <path>] [--decisions <path>] [--prep <path>]` prints the digest and brief without committing or posting: the brief goes to stdout, then the digest to stderr. The golden set runs with the test files.
 
 ## Costs
 

@@ -5,9 +5,9 @@
 # (OAuth client registrations, pending sign-ins and token mappings) must survive scale to zero and
 # deploys, or every teammate's connector must sign in and register again. So it lives in a bucket
 # mounted at /oauth as FASTMCP_HOME, owned by the image's user (uid 10001, service/Dockerfile). Only
-# discovery-mcp can read it; nothing in it is public. One instance at most, so two never write it at once.
+# nua-mcp can read it; nothing in it is public. One instance at most, so two never write it at once.
 #
-# setup.sh had to deploy discovery-mcp private with sign-in off first, because MCP_BASE_URL was known only
+# setup.sh had to deploy nua-mcp private with sign-in off first, because MCP_BASE_URL was known only
 # afterwards. The URL is deterministic here (locals.tf), so the first revision has sign-in on, and the
 # public binding is created only after the service. With mcp_auth = "none" the service stays private.
 

@@ -1,0 +1,10 @@
+# Seat list: the role someone speaks from on a call, such as "head of finance", "IT buyer" or
+# "end user". Evidence for each belief is counted by seat, so keep the list short (10 to 20) and
+# distinct. What the call is about (a product line, a workflow) goes in the claim scope, not the seat.
+# Add "other" as a catch-all: a seat a model names that is not on the list becomes "other".
+# Fill it in with `uv run python -m nua init`, or by hand as one "- seat" line each, e.g.
+#   - head of operations
+#   - other
+# Empty: seats are left as the models name them, which makes counting evidence by seat unreliable.
+# See examples/insurance/seats.yml and examples/freight-brokerage/seats.yml.
+[]

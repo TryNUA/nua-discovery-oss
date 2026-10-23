@@ -1,0 +1,8 @@
+# Example config/entities.yml (examples/freight-brokerage/): empty, since no calls have been heard yet.
+# ASR alias map. Used to widen searches and fill structured fields, never to rewrite a quote.
+# Add an alias only with evidence: name the transcript it was heard in and quote the garbled span, e.g.
+#
+# Halyard Labs:
+#   aliases:
+#     - {alias: hallyard labs, confidence: high, source: 'transcripts/x.md: "we tried hallyard labs last spring"'}
+{}

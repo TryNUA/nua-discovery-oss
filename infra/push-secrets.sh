@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Discovery Base: copy secret values from your local .env into Secret Manager.
+# Nua Discovery: copy secret values from your local .env into Secret Manager.
 #
 # Terraform creates the secrets empty (infra/terraform/secrets.tf) and never handles their values. This
 # script fills them, once after stage 1 and again whenever a key changes. It reads each value from .env

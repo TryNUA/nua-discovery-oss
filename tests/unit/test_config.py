@@ -1,5 +1,5 @@
-"""Tests for discovery/config.py, including how a date-only `ingest_cutoff` from config/pipeline.yml is read
-by both of its readers, the receiver (service/main.py) and the nightly sweep (discovery/sweep.py). Offline."""
+"""Tests for nua/config.py, including how a date-only `ingest_cutoff` from config/pipeline.yml is read
+by both of its readers, the receiver (service/main.py) and the nightly sweep (nua/sweep.py). Offline."""
 from __future__ import annotations
 
 import base64
@@ -13,10 +13,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from discovery import config as config_mod
-from discovery.context import Ctx
-from discovery.rules import as_datetime
-from discovery.sweep import run_sweep
+from nua import config as config_mod
+from nua.context import Ctx
+from nua.rules import as_datetime
+from nua.sweep import run_sweep
 from service import main
 
 GRANOLA_SECRET = "whsec_" + base64.b64encode(b"config-test-key").decode()

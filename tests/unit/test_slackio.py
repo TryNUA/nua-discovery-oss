@@ -1,4 +1,4 @@
-"""Tests for discovery/slackio.py: request signatures and the WebClient-backed SlackIO (fake client)."""
+"""Tests for nua/slackio.py: request signatures and the WebClient-backed SlackIO (fake client)."""
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +9,7 @@ import httpx
 import pytest
 from slack_sdk.errors import SlackApiError
 
-from discovery.slackio import MAX_FALLBACK_TEXT, SlackWebIO, fallback_text, verify_slack_signature
+from nua.slackio import MAX_FALLBACK_TEXT, SlackWebIO, fallback_text, verify_slack_signature
 
 # Slack's documented example (api.slack.com/authentication/verifying-requests-from-slack)
 DOC_SECRET = "8f742231b10e8888abcd99yyyzzz85a5"
@@ -168,7 +168,7 @@ def md(event_type, key):
 
 def test_post_resolves_channel_name_once_and_passes_metadata(io, client):
     blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "hi"}}]
-    meta = md("discovery_brief", "transcripts/a.md")
+    meta = md("nua_brief", "transcripts/a.md")
     ts1 = io.post("#discovery-calls", blocks, "hi", metadata=meta)
     ts2 = io.post("#discovery-calls", blocks, "reply", thread_ts=ts1)
     assert (ts1, ts2) == ("1700000000.000001", "1700000000.000002")
@@ -217,23 +217,23 @@ def test_delete_ignores_already_deleted_but_raises_other_errors(io, client):
 def test_find_by_metadata_returns_most_recent_match_across_pages(io, client):
     client.history_pages = [
         [{"ts": "9.0", "bot_id": "B0DISC", "text": "newest, no metadata"},
-         {"ts": "8.0", "bot_id": "B0DISC", "metadata": md("discovery_brief", "transcripts/b.md")}],
-        [{"ts": "7.0", "bot_id": "B0DISC", "metadata": md("discovery_brief", "transcripts/a.md")},
-         {"ts": "6.0", "bot_id": "B0DISC", "metadata": md("discovery_brief", "transcripts/a.md")}],
+         {"ts": "8.0", "bot_id": "B0DISC", "metadata": md("nua_brief", "transcripts/b.md")}],
+        [{"ts": "7.0", "bot_id": "B0DISC", "metadata": md("nua_brief", "transcripts/a.md")},
+         {"ts": "6.0", "bot_id": "B0DISC", "metadata": md("nua_brief", "transcripts/a.md")}],
     ]
-    assert io.find_by_metadata("#discovery-calls", "discovery_brief", "transcripts/a.md") == "7.0"
+    assert io.find_by_metadata("#discovery-calls", "nua_brief", "transcripts/a.md") == "7.0"
     calls = client.of("conversations_history")
     assert all(c["include_all_metadata"] is True and c["channel"] == "C0CALLS" for c in calls)
-    assert io.find_by_metadata("#discovery-calls", "discovery_rollup", "transcripts/a.md") is None
+    assert io.find_by_metadata("#discovery-calls", "nua_rollup", "transcripts/a.md") is None
 
 
 def test_find_by_metadata_respects_limit(io, client):
     client.history_pages = [
         [{"ts": f"{i}.0", "bot_id": "B0DISC"} for i in range(100, 0, -1)],
-        [{"ts": "0.5", "bot_id": "B0DISC", "metadata": md("discovery_ref", "k")}],
+        [{"ts": "0.5", "bot_id": "B0DISC", "metadata": md("nua_ref", "k")}],
     ]
-    assert io.find_by_metadata("#discovery-calls", "discovery_ref", "k", limit=100) is None
-    assert io.find_by_metadata("#discovery-calls", "discovery_ref", "k", limit=1000) == "0.5"
+    assert io.find_by_metadata("#discovery-calls", "nua_ref", "k", limit=100) is None
+    assert io.find_by_metadata("#discovery-calls", "nua_ref", "k", limit=1000) == "0.5"
 
 
 def test_replies_excludes_parent_pages_and_marks_own_bot(io, client):
@@ -264,7 +264,7 @@ def test_message_reads_one_top_level_message_by_ts(io, client):
 
 
 def test_fake_slack_message_returns_the_live_message_only():
-    from discovery.ports import FakeSlack
+    from nua.ports import FakeSlack
     slack = FakeSlack()
     ts = slack.post("#c", [{"type": "divider"}], "hi")
     slack.update("#c", ts, [], "edited")
@@ -294,7 +294,7 @@ def test_respond_raises_on_expired_url(io):
 
 
 def test_satisfies_slack_protocol_methods():
-    from discovery.ports import SlackIO
+    from nua.ports import SlackIO
     for name in ("post", "update", "delete", "find_by_metadata", "replies", "message", "open_view",
                  "update_view", "respond", "ephemeral"):
         assert callable(getattr(SlackWebIO, name)), name

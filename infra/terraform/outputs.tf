@@ -7,7 +7,7 @@ output "project_number" {
 
 output "image_repository" {
   description = "Where infra/deploy.sh pushes images."
-  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${local.ar_repo}/discovery"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${local.ar_repo}/nua"
 }
 
 output "build_service_account" {

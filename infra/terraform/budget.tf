@@ -7,7 +7,7 @@ resource "google_billing_budget" "monthly" {
   count = var.billing_account != "" ? 1 : 0
 
   billing_account = var.billing_account
-  display_name    = "discovery-base monthly"
+  display_name    = "nua-discovery monthly"
 
   budget_filter {
     projects = ["projects/${local.project_number}"]

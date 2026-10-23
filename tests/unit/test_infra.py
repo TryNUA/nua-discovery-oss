@@ -248,7 +248,7 @@ def test_service_urls_are_deterministic_and_carried_as_env():
                  "SERVICE_ROLE", "REPO_SLUG", "REPO_BRANCH", "GITHUB_APP_SLUG", "GCP_PROJECT",
                  "TASKS_LOCATION", "TASKS_QUEUE"):
         assert name in locals_tf, name
-    assert 'var.slack_test_mode ? { DISCOVERY_SLACK_TEST = "1" } : {}' in locals_tf
+    assert 'var.slack_test_mode ? { NUA_SLACK_TEST = "1" } : {}' in locals_tf
     # no service reads its own URL from its own resource (that would be a cycle)
     assert ".uri" not in all_tf()
 
@@ -261,10 +261,10 @@ def test_no_slack_click_allowlist():
 # ---------- queue and scheduler ----------
 
 def test_queue_settings():
-    queue = block("google_cloud_tasks_queue", "discovery")
+    queue = block("google_cloud_tasks_queue", "nua")
     assert "max_concurrent_dispatches = 1" in queue
     assert "max_attempts = 5" in queue and 'min_backoff  = "60s"' in queue and 'max_backoff  = "1800s"' in queue
-    assert 'queue_name   = "discovery"' in tf_files()["locals.tf"]
+    assert 'queue_name   = "nua"' in tf_files()["locals.tf"]
 
 
 def test_scheduler_jobs_run_only_with_schedules_on_and_use_oidc_for_the_receiver():
@@ -274,7 +274,7 @@ def test_scheduler_jobs_run_only_with_schedules_on_and_use_oidc_for_the_receiver
     assert "ignore_changes" not in job                            # Terraform owns paused, not gcloud
     assert re.search(r'variable "schedules_on" \{[^}]*type\s*=\s*bool[^}]*default\s*=\s*false', tf_files()["variables.tf"])
     assert "time_zone        = local.time_zone" in job
-    assert 'time_zone    = "America/Los_Angeles"' in tf_files()["locals.tf"]
+    assert "time_zone    = var.time_zone" in tf_files()["locals.tf"]
     assert "audience              = local.receiver_url" in job
     assert 'google_service_account.sa["scheduler"].email' in job
     assert '"POST"' in job and '"Content-Type" = "application/json"' in job
@@ -288,6 +288,19 @@ def test_scheduler_jobs_run_only_with_schedules_on_and_use_oidc_for_the_receiver
         assert f'schedule = "{schedule}"' in line and f'path = "{path}"' in line and f'body = "{body}"' in line, name
 
 
+def test_scheduler_time_zone_is_a_variable_matching_the_pipeline_timezone():
+    var = block_var("time_zone")
+    assert attr(var, "default") == '"America/Los_Angeles"'
+    assert attr(var, "type") == "string"
+    assert "config/pipeline.yml" in attr(var, "description")
+    assert "Los_Angeles" not in tf_files()["locals.tf"] and "Los_Angeles" not in tf_files()["scheduler.tf"]
+    assert " PT" not in tf_files()["scheduler.tf"]
+    example = (TF / "terraform.tfvars.example").read_text(encoding="utf-8")
+    assert re.search(r'^time_zone\s*=\s*"America/Los_Angeles"', example, re.M)
+    from nua import config as config_mod
+    assert config_mod.load(ROOT).pipeline.timezone == "America/Los_Angeles"   # the two defaults agree
+
+
 def test_service_agents_can_mint_oidc_tokens():
     sa = tf_files()["service_accounts.tf"]
     assert "@gcp-sa-cloudtasks.iam.gserviceaccount.com" in sa
@@ -299,7 +312,7 @@ def test_builds_run_as_internal_build_with_only_what_a_build_needs():
     assert 'build     = "Cloud Build runner of infra/deploy.sh"' in tf_files()["locals.tf"]
     ar = tf_files()["artifact_registry.tf"]
     assert '"roles/artifactregistry.writer"' in block("google_artifact_registry_repository_iam_member", "build_writer")
-    assert "google_artifact_registry_repository.discovery.name" in block("google_artifact_registry_repository_iam_member", "build_writer")
+    assert "google_artifact_registry_repository.nua.name" in block("google_artifact_registry_repository_iam_member", "build_writer")
     assert '"roles/storage.objectViewer"' in block("google_storage_bucket_iam_member", "build_source_reader")
     assert '"roles/logging.logWriter"' in block("google_project_iam_member", "build_log_writer")
     assert ar.count('google_service_account.sa["build"].email') == 3
@@ -355,25 +368,25 @@ def test_dry_run_prints_the_commands_and_runs_nothing(fake_gcloud):
     code, out, calls = fake_gcloud("--dry-run")
     assert code == 0, out
     assert calls == []
-    image = "us-west1-docker.pkg.dev/discovery-test/discovery/discovery:t1"
+    image = "us-west1-docker.pkg.dev/discovery-test/nua/nua:t1"
     assert "gcloud builds submit" in out and image in out
-    assert f"gcloud run services update discovery-processor --project=discovery-test --region=us-west1 --image={image}" in out
-    assert f"gcloud run services update discovery-receiver --project=discovery-test --region=us-west1 --image={image}" in out
-    assert "discovery-mcp" not in out
+    assert f"gcloud run services update nua-processor --project=discovery-test --region=us-west1 --image={image}" in out
+    assert f"gcloud run services update nua-receiver --project=discovery-test --region=us-west1 --image={image}" in out
+    assert "nua-mcp" not in out
 
 
 @pytest.mark.skipif(BASH is None, reason="needs bash")
 def test_deploy_builds_then_rolls_out(fake_gcloud):
-    code, out, calls = fake_gcloud(SERVICES="discovery-processor discovery-receiver discovery-mcp")
+    code, out, calls = fake_gcloud(SERVICES="nua-processor nua-receiver nua-mcp")
     assert code == 0, out
     assert calls[0].startswith("builds submit ")
-    assert [c.split(" ")[3] for c in calls[1:]] == ["discovery-processor", "discovery-receiver", "discovery-mcp"]
+    assert [c.split(" ")[3] for c in calls[1:]] == ["nua-processor", "nua-receiver", "nua-mcp"]
     code, out, calls = fake_gcloud("--build-only")
     assert code == 0, out
-    assert len(calls) == 1 and 'image = "us-west1-docker.pkg.dev/discovery-test/discovery/discovery:t1"' in out
-    # builds run as discovery-build and stage their source in the Terraform-made bucket
-    assert "--service-account=projects/discovery-test/serviceAccounts/discovery-build@discovery-test.iam.gserviceaccount.com" in calls[0]
-    assert "--gcs-source-staging-dir=gs://discovery-test-discovery-build/source" in calls[0]
+    assert len(calls) == 1 and 'image = "us-west1-docker.pkg.dev/discovery-test/nua/nua:t1"' in out
+    # builds run as nua-build and stage their source in the Terraform-made bucket
+    assert "--service-account=projects/discovery-test/serviceAccounts/nua-build@discovery-test.iam.gserviceaccount.com" in calls[0]
+    assert "--gcs-source-staging-dir=gs://discovery-test-nua-build/source" in calls[0]
     code, out, _ = fake_gcloud("--bogus")
     assert code != 0
 
@@ -383,21 +396,21 @@ def test_gcloudignore_uploads_only_what_the_image_needs():
              if line.strip() and not line.startswith("#")]
     assert lines[0] == "/*"                                          # everything out ...
     kept = {line[1:] for line in lines if line.startswith("!")}
-    assert kept == {"/pyproject.toml", "/uv.lock", "/discovery/", "/service/"}   # ... only the image's inputs back in
+    assert kept == {"/pyproject.toml", "/uv.lock", "/nua/", "/service/"}   # ... only the image's inputs back in
     dockerfile = (ROOT / "service" / "Dockerfile").read_text(encoding="utf-8")
     copied = set(re.findall(r"^COPY (?!--from)(.+?) \S+$", dockerfile, re.M))
-    assert copied == {"pyproject.toml uv.lock", "discovery", "service"}
+    assert copied == {"pyproject.toml uv.lock", "nua", "service"}
 
 
 # ---------- the image ----------
 
 def test_image_user_matches_the_volume_mount_owner():
     dockerfile = (ROOT / "service" / "Dockerfile").read_text(encoding="utf-8")
-    assert "--uid 10001" in dockerfile and "USER discovery" in dockerfile
+    assert "--uid 10001" in dockerfile and "USER nua" in dockerfile
 
 
 def test_registry_keeps_the_newest_10_images():
-    repo = block("google_artifact_registry_repository", "discovery")
+    repo = block("google_artifact_registry_repository", "nua")
     assert "cleanup_policy_dry_run = false" in repo
     assert 'action = "KEEP"' in repo and "keep_count = 10" in repo
     assert 'action = "DELETE"' in repo and 'tag_state  = "ANY"' in repo
@@ -416,8 +429,8 @@ def test_budget_alert_only_with_a_billing_account():
 def test_image_makes_the_code_readable_by_the_app_user():
     """A source file saved owner-only (-rw-------) must not break the image: the app runs as uid 10001."""
     docker = (ROOT / "service" / "Dockerfile").read_text(encoding="utf-8")
-    assert "chmod -R a+rX /app/discovery /app/service" in docker
-    assert docker.index("chmod -R a+rX") < docker.index("USER discovery")
+    assert "chmod -R a+rX /app/nua /app/service" in docker
+    assert docker.index("chmod -R a+rX") < docker.index("USER nua")
 
 
 def test_image_installs_from_the_uv_lock():
@@ -455,7 +468,7 @@ def test_uv_lock_pins_every_dependency_within_its_range():
         assert name in versions, f"{req.name} is not in uv.lock"
         assert req.specifier.contains(versions[name]), f"{req.name}=={versions[name]} is outside {req.specifier}"
     assert versions["fastmcp"] == "4.0.10"
-    [discovery] = [p for p in lock["package"] if p["name"] == "discovery-base"]
+    [discovery] = [p for p in lock["package"] if p["name"] == "nua-discovery"]
     assert {canonicalize_name(Requirement(s).name) for s in dev} <= {
         canonicalize_name(d["name"]) for d in discovery["dev-dependencies"]["dev"]}
 
@@ -463,15 +476,15 @@ def test_uv_lock_pins_every_dependency_within_its_range():
 # ---------- comments that describe the setup ----------
 
 def test_env_example_runs_the_services_with_env_file():
-    """The services never load .env: only `python -m discovery` and the `local` role do. Running them
+    """The services never load .env: only `python -m nua` and the `local` role do. Running them
     yourself needs uvicorn's --env-file, or SERVICE_ROLE (read at import) and every setting in .env are
     ignored and you get the receiver whatever the file says."""
     text = (ROOT / ".env.example").read_text(encoding="utf-8")
     assert "uvicorn --env-file .env service.main:app" in text
     assert "(uvicorn service.main:app)" not in text
-    import discovery.settings
-    doc = " ".join((discovery.settings.__doc__ or "").split())
-    assert "only by `python -m discovery`" in doc and "--env-file" in doc
+    import nua.settings
+    doc = " ".join((nua.settings.__doc__ or "").split())
+    assert "only by `python -m nua`" in doc and "--env-file" in doc
     assert "On a local clone, `.env` at the repo root is loaded first" not in doc
 
 
@@ -480,7 +493,7 @@ def test_env_example_describes_the_sign_in_store_and_the_cli_root():
     assert EM_DASH not in text
     assert "keeps sign-in tokens valid across restarts" not in text
     assert "FASTMCP_HOME" in text
-    assert "DISCOVERY_ROOT" in text
+    assert "NUA_ROOT" in text
 
 
 def test_cloud_run_services_are_deletable():

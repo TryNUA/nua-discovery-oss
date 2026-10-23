@@ -2,7 +2,7 @@
 
 Every quote in tests/labels/, tests/golden/ and tests/expected/ must be copied character for
 character from its fixture's transcript body, never from the recorder notes above it. The search
-lives in this file on purpose: the labels are what discovery/verify.py is scored against, so they must
+lives in this file on purpose: the labels are what nua/verify.py is scored against, so they must
 not depend on it.
 """
 from __future__ import annotations
@@ -154,8 +154,8 @@ def load_cases() -> list[dict]:
 
 
 def seats() -> list[str]:
-    """Seat names from config/seats.yml."""
-    return yaml.safe_load((ROOT / "config" / "seats.yml").read_text(encoding="utf-8"))
+    """Seat names from examples/insurance/seats.yml, the market of the fixtures."""
+    return yaml.safe_load((ROOT / "examples" / "insurance" / "seats.yml").read_text(encoding="utf-8"))
 
 
 def golden_entries() -> dict[str, dict]:

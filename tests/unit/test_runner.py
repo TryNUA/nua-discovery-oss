@@ -1,4 +1,4 @@
-"""Tests for discovery/runner.py: task dispatch, final-failure handling and the task budget.
+"""Tests for nua/runner.py: task dispatch, final-failure handling and the task budget.
 
 The task modules other tasks own (process, apply, backcheck, indexes, rollup, sweep) are replaced by
 small stubs, so these tests only check what the runner itself does with them.
@@ -15,23 +15,23 @@ from dataclasses import dataclass, field
 import pytest
 import yaml
 
-import discovery
-from discovery import runner, settings
-from discovery.context import Ctx
-from discovery.digest import digest_path, read_digest, write_digest
-from discovery.llm import CostCapExceeded
-from discovery.types import Claim, Digest, Scope
+import nua
+from nua import runner, settings
+from nua.context import Ctx
+from nua.digest import digest_path, read_digest, write_digest
+from nua.llm import CostCapExceeded
+from nua.types import Claim, Digest, Scope
 
 
 # ---------- stubs for modules other tasks own ----------
 
 def stub(monkeypatch, name: str, **attrs) -> types.ModuleType:
-    """Install a fake `discovery.<name>` module for the duration of one test."""
-    mod = types.ModuleType(f"discovery.{name}")
+    """Install a fake `nua.<name>` module for the duration of one test."""
+    mod = types.ModuleType(f"nua.{name}")
     for key, value in attrs.items():
         setattr(mod, key, value)
-    monkeypatch.setitem(sys.modules, f"discovery.{name}", mod)
-    monkeypatch.setattr(discovery, name, mod, raising=False)
+    monkeypatch.setitem(sys.modules, f"nua.{name}", mod)
+    monkeypatch.setattr(nua, name, mod, raising=False)
     return mod
 
 

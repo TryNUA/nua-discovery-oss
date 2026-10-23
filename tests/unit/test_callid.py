@@ -1,9 +1,9 @@
-"""Tests for discovery/callid.py: slugs, call ids, collisions, undated and stub ids."""
+"""Tests for nua/callid.py: slugs, call ids, collisions, undated and stub ids."""
 from __future__ import annotations
 
 import pytest
 
-from discovery.callid import make_call_id, slug_name, stub_call_id
+from nua.callid import make_call_id, slug_name, stub_call_id
 
 
 def test_slug_name_basic():

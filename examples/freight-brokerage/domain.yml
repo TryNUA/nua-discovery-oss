@@ -1,0 +1,49 @@
+# Example config/domain.yml: a fictional startup (Halyard Labs) exploring software for freight brokerages.
+# Start from it with `uv run python -m nua init --example freight-brokerage`, then make it yours.
+# Every prompt reads this file, so the pipeline works for any market.
+# Keep each value plain and specific: the models read it as the brief for every call.
+
+# Your company, as the models should name it ("Halyard Labs people are the interviewers").
+company: Halyard Labs
+
+# Who reads the findings and decides. Used as "the <team>" in prompts and briefs.
+team: founders
+
+# One line: who you are and what you are deciding.
+about: a two-person startup deciding what to build for the back office of mid-size freight brokerages
+
+# The market in a few words, for short mentions ("discovery calls with people in <market>").
+market: freight brokerage
+
+# The problem areas you are exploring. Findings are judged against these.
+exploring: >-
+  carrier onboarding and vetting (fraud, double brokering, insurance checks), track and trace,
+  carrier payments and disputes, shipper audits and load documentation, and spot quoting
+
+# Who you talk to, as a plain list. The seats you count evidence by are in config/seats.yml.
+interviewees: >-
+  brokerage operations leads, carrier sales reps, account managers, dispatchers, carrier
+  compliance staff, freight accounting, shippers' logistics managers, small carriers and factoring firms
+
+# Each finding is scoped so it is never stretched beyond what was said. Describe the three scope
+# fields for your market (the fourth, seat, comes from config/seats.yml). The keys stay the same.
+scope:
+  line: "the freight mode or workflow: full truckload, LTL, reefer, flatbed, drayage, carrier onboarding, payments..."
+  party: "who the finding is about: broker, shipper, carrier, owner-operator, factoring company, load board, TMS vendor..."
+  segment: "the market segment: small brokerage (under 50 people), mid-size brokerage, enterprise 3PL, regional or national..."
+
+# Where the main person on a call stands relative to what you are building (role_in_thesis).
+# Ids are short lowercase words; keep "expert" and "competitor", rename or replace the rest.
+roles:
+  broker: works at a freight brokerage or 3PL, the team we would sell to
+  shipper: ships freight and hires brokers
+  carrier: hauls the freight, as a fleet, an owner-operator or a dispatcher working for one
+  vendor: sells software, data or services to brokerages (TMS, visibility, factoring, load boards)
+  expert: consultant, advisor or former executive speaking from experience
+  competitor: builds something close to what we are building
+
+# Examples of the short institution label each call gets (institution_type).
+institution_examples: mid-size freight brokerage, enterprise 3PL, regional trucking fleet, owner-operator, factoring company, food manufacturer
+
+# The Slack app's display name, as people @mention it.
+bot_name: Halyard Discovery

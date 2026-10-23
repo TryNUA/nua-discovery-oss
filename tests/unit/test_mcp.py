@@ -1,6 +1,6 @@
 """Tests for service/mcp.py: every tool through FastMCP's in-memory client over a temp repo.
 
-The collaborators written in parallel (discovery.indexes, discovery.ask) are stubbed with small fake modules
+The collaborators written in parallel (nua.indexes, nua.ask) are stubbed with small fake modules
 placed in sys.modules, so these tests only exercise the MCP layer.
 """
 from __future__ import annotations
@@ -18,12 +18,12 @@ import yaml
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-from discovery import config as config_mod
-from discovery import frontmatter
-from discovery.context import Ctx
-from discovery.digest import make_stub, write_digest
-from discovery.ports import NullRemote
-from discovery.types import BeliefCheck, Claim, Digest, FollowUp, QuestionCoverage, Scope
+from nua import config as config_mod
+from nua import frontmatter
+from nua.context import Ctx
+from nua.digest import make_stub, write_digest
+from nua.ports import NullRemote
+from nua.types import BeliefCheck, Claim, Digest, FollowUp, QuestionCoverage, Scope
 from service import mcp as mcp_mod
 from conftest import ROOT, fixture_text
 
@@ -98,7 +98,7 @@ class FakeEntryStatus:
 
 
 def _fake_indexes() -> types.ModuleType:
-    mod = types.ModuleType("discovery.indexes")
+    mod = types.ModuleType("nua.indexes")
 
     def entry_status(entry, digests, overrides, config):
         buckets = {"supports": [], "contradicts": [], "scope_mismatch": []}
@@ -131,7 +131,7 @@ def _fake_indexes() -> types.ModuleType:
         return yaml.safe_load(repo.read_or("config/verdict_overrides.yml", "")) or []
 
     def group_findings(digests, findings, themes):
-        from discovery.verify import token_overlap
+        from nua.verify import token_overlap
         refs = [(t["name"], c.get("call_id"), c.get("quote") or "") for t in themes for c in t.get("claims") or []]
         grouped, ungrouped = {}, []
         for d, c in findings:
@@ -151,8 +151,8 @@ def _fake_indexes() -> types.ModuleType:
 
 
 def _fake_apply() -> types.ModuleType:
-    """discovery.apply stand-in: the processor's request check accepts everything; one test rejects."""
-    mod = types.ModuleType("discovery.apply")
+    """nua.apply stand-in: the processor's request check accepts everything; one test rejects."""
+    mod = types.ModuleType("nua.apply")
 
     def request_from_dict(data):
         if data.get("reason") == "processor says no":
@@ -176,7 +176,7 @@ class FakeAskResult:
 
 
 def _fake_ask(calls: list) -> types.ModuleType:
-    mod = types.ModuleType("discovery.ask")
+    mod = types.ModuleType("nua.ask")
 
     def ask(ctx, question, *, since=None, seat=None, batch_size=20, concurrency=8, progress=None,
             deadline_seconds=None):
@@ -229,7 +229,7 @@ def repo(tmp_repo: Path) -> Path:
         {"name": "Safety walks", "claims": [{"call_id": "2026-10-01_wade-pruitt", "quote": Q_FLOORS}]}]}),
         encoding="utf-8")
 
-    from discovery.ports import RepoFS
+    from nua.ports import RepoFS
     fs = RepoFS(tmp_repo)
     wade = Digest(
         call_id="2026-10-01_wade-pruitt", transcript="transcripts/wade-pruitt.md", status="digested",
@@ -287,9 +287,9 @@ def ask_calls() -> list:
 
 @pytest.fixture
 def env(repo: Path, monkeypatch, ask_calls):
-    monkeypatch.setitem(sys.modules, "discovery.indexes", _fake_indexes())
-    monkeypatch.setitem(sys.modules, "discovery.ask", _fake_ask(ask_calls))
-    monkeypatch.setitem(sys.modules, "discovery.apply", _fake_apply())
+    monkeypatch.setitem(sys.modules, "nua.indexes", _fake_indexes())
+    monkeypatch.setitem(sys.modules, "nua.ask", _fake_ask(ask_calls))
+    monkeypatch.setitem(sys.modules, "nua.apply", _fake_apply())
     monkeypatch.delenv("MCP_DEV_USER", raising=False)
     ctx = Ctx.for_tests(repo)
     ctx.remote = FileRemote(repo)
@@ -562,8 +562,8 @@ def test_get_call_unknown_or_unsafe_id(env):
 def test_get_call_opens_a_stub_named_after_a_dropped_export(env):
     """A dropped export keeps its own file name, so its stub's call id can hold spaces and parentheses.
     list_calls shows it; get_call must open it so the stub's reason can be read."""
-    from discovery.callid import stub_call_id
-    from discovery.ports import RepoFS
+    from nua.callid import stub_call_id
+    from nua.ports import RepoFS
     rel = "transcripts/Alex _ Darius (Acme Mutual) intro call.md"
     (env.repo.root / rel).write_text("Alex: hi\n", encoding="utf-8")
     call_id = stub_call_id(rel)
@@ -588,7 +588,7 @@ def test_get_call_opens_a_stub_named_after_a_dropped_export(env):
 
 
 def test_get_call_never_follows_a_transcript_path_out_of_transcripts(env):
-    from discovery.ports import RepoFS
+    from nua.ports import RepoFS
     (env.repo.root / "secret.md").write_text("do not show\n", encoding="utf-8")
     write_digest(RepoFS(env.repo.root), make_stub(
         call_id="odd-stub", transcript="transcripts/../secret.md", status="failed", origin="live", reason="x"))
@@ -618,7 +618,7 @@ def test_get_call_pages_a_long_transcript(env, monkeypatch):
 def test_get_call_on_a_non_utf8_transcript_shows_the_stub(env):
     """A Windows-1252 export becomes a parse_failed stub. get_call must still show the stub and its reason,
     and must never page replacement-character text that could be quoted as verbatim."""
-    from discovery.ports import RepoFS
+    from nua.ports import RepoFS
     (env.repo.root / "transcripts" / "pat-lee-export.md").write_bytes(
         b"Pat Lee: we\x92re fine with a \x93total loss\x94 call\n")
     write_digest(RepoFS(env.repo.root), make_stub(
@@ -749,7 +749,7 @@ def test_get_prep_context_asks_for_a_full_name_for_a_first_time_contact(env):
 
 
 def test_save_prep_warns_when_only_a_first_name_is_given(env, monkeypatch):
-    from discovery.prep import load_preps, match_prep
+    from nua.prep import load_preps, match_prep
     monkeypatch.setenv("MCP_DEV_USER", "alex")
     first_name_only = (GOOD_PREP.replace("contact: Jane Doe", "contact: Jane")
                        .replace("attendee_email: jane@example.com\n", ""))
@@ -875,10 +875,10 @@ def test_request_change_repeated_after_apply_is_applied_again(env, monkeypatch):
     all three apply, each posts its own notice, and B-003 ends at X."""
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
-    monkeypatch.delitem(sys.modules, "discovery.apply")
-    apply = pytest.importorskip("discovery.apply")
+    monkeypatch.delitem(sys.modules, "nua.apply")
+    apply = pytest.importorskip("nua.apply")
     monkeypatch.setattr(apply, "_regenerate", lambda ctx: [])
-    from discovery.beliefs import parse_beliefs
+    from nua.beliefs import parse_beliefs
     monkeypatch.setenv("MCP_DEV_USER", "sam")
     server = _server(env)
     start = datetime(2026, 10, 1, 9, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
@@ -899,7 +899,7 @@ def test_request_change_repeated_after_apply_is_applied_again(env, monkeypatch):
     assert entry.statement == x
     refs = [h.ref for h in entry.history if h.action == "reword"]
     assert len(refs) == 3 and len(set(refs)) == 3
-    notices = [m for m in env.slack.live() if (m["metadata"] or {}).get("event_type") == "discovery_ref"]
+    notices = [m for m in env.slack.live() if (m["metadata"] or {}).get("event_type") == "nua_ref"]
     assert len(notices) == 3
 
 
@@ -998,7 +998,7 @@ def test_results_are_capped(env, monkeypatch):
         write_digest_row = Digest(call_id=f"2026-08-{i % 28 + 1:02d}_person-{i}", transcript=f"transcripts/p{i}.md",
                                   status="digested", origin="backfill", date=f"2026-08-{i % 28 + 1:02d}",
                                   contact=f"Person {i}", firm="Firm", seat="other")
-        from discovery.ports import RepoFS
+        from nua.ports import RepoFS
         write_digest(RepoFS(env.repo.root), write_digest_row)
     rows = call(server, "list_calls")
     assert len(rows) <= 2_000
@@ -1040,16 +1040,16 @@ def test_auth_from_env(monkeypatch):
 
 @pytest.mark.parametrize("env_vars", [{}, {"MCP_AUTH": ""}, {"MCP_AUTH": "  "}, {"MCP_AUTH": "off"}])
 def test_sign_in_fails_closed_unless_explicitly_off(env_vars):
-    """discovery-mcp is public (allUsers invoker). A revision deployed without MCP_AUTH must refuse to start,
+    """nua-mcp is public (allUsers invoker). A revision deployed without MCP_AUTH must refuse to start,
     not serve every digest and transcript to anyone. Only an explicit MCP_AUTH=none turns sign-in off."""
     with pytest.raises(ValueError, match="MCP_AUTH"):
         mcp_mod.auth_from_env(env_vars)
 
 
 def test_create_app_refuses_to_start_without_mcp_auth(env, monkeypatch):
-    fake_settings = types.ModuleType("discovery.settings")
+    fake_settings = types.ModuleType("nua.settings")
     fake_settings.build_ctx = lambda role: env
-    monkeypatch.setitem(sys.modules, "discovery.settings", fake_settings)
+    monkeypatch.setitem(sys.modules, "nua.settings", fake_settings)
     monkeypatch.delenv("MCP_AUTH", raising=False)
     with pytest.raises(ValueError, match="MCP_AUTH"):
         mcp_mod.create_app()
@@ -1067,12 +1067,12 @@ def test_sign_in_state_lives_under_fastmcp_home(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(fastmcp.settings, "home", tmp_path / "oauth")
     env = {"MCP_AUTH": "github", "MCP_OAUTH_CLIENT_ID": "id", "MCP_OAUTH_CLIENT_SECRET": "secret",
            "MCP_BASE_URL": "https://mcp.example.run.app", "MCP_JWT_SIGNING_KEY": "k" * 40}
-    with caplog.at_level("WARNING", logger="discovery.mcp"):
+    with caplog.at_level("WARNING", logger="nua.mcp"):
         mcp_mod.auth_from_env(env)
     assert list((tmp_path / "oauth" / "oauth-proxy").iterdir())
     assert "FASTMCP_HOME" in caplog.text               # no durable store configured: say so
     caplog.clear()
-    with caplog.at_level("WARNING", logger="discovery.mcp"):
+    with caplog.at_level("WARNING", logger="nua.mcp"):
         mcp_mod.auth_from_env({**env, "FASTMCP_HOME": str(tmp_path / "oauth")})
     assert "FASTMCP_HOME" not in caplog.text
 
@@ -1086,9 +1086,9 @@ def test_request_change_runs_the_processor_check(env, monkeypatch):
 
 
 def test_committed_requests_load_in_the_real_processor(env, monkeypatch):
-    """Integration check against discovery.apply when it is present: every file the tool writes loads."""
-    monkeypatch.delitem(sys.modules, "discovery.apply")
-    apply = pytest.importorskip("discovery.apply")
+    """Integration check against nua.apply when it is present: every file the tool writes loads."""
+    monkeypatch.delitem(sys.modules, "nua.apply")
+    apply = pytest.importorskip("nua.apply")
     monkeypatch.setenv("MCP_DEV_USER", "sam")
     server = _server(env)
     requests = [
@@ -1118,9 +1118,9 @@ def test_committed_requests_load_in_the_real_processor(env, monkeypatch):
 
 
 def test_create_app_builds_the_http_app(env, monkeypatch):
-    fake_settings = types.ModuleType("discovery.settings")
+    fake_settings = types.ModuleType("nua.settings")
     fake_settings.build_ctx = lambda role: env
-    monkeypatch.setitem(sys.modules, "discovery.settings", fake_settings)
+    monkeypatch.setitem(sys.modules, "nua.settings", fake_settings)
     monkeypatch.setenv("MCP_AUTH", "none")
     app = mcp_mod.create_app()
     assert any(getattr(r, "path", None) == "/mcp" for r in app.routes)

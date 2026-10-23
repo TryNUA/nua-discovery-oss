@@ -3,18 +3,21 @@
 
 project_id                 = "my-discovery-project"
 region                     = "us-west1"
-repo_slug                  = "owner/discovery-base"
+repo_slug                  = "owner/nua-discovery"
 repo_branch                = "main"
 github_app_id              = "123456"
 github_app_installation_id = "78901234"
-github_app_slug            = "discovery-base"
+github_app_slug            = "nua-discovery"
 
 # Stage 1: leave empty. Stage 2: the image infra/deploy.sh --build-only printed.
 image = ""
-# image = "us-west1-docker.pkg.dev/my-discovery-project/discovery/discovery:20261004-120000-abc1234"
+# image = "us-west1-docker.pkg.dev/my-discovery-project/nua/nua:20261004-120000-abc1234"
 
 # Scheduler jobs (sweep, sweep-granola, rollup). Leave false until go-live is done (infra/README.md).
 schedules_on = false
+
+# Time zone the Scheduler jobs run in. Must match `timezone` in config/pipeline.yml.
+time_zone = "America/Los_Angeles"
 
 # Budget alert emails to billing admins (gcloud billing projects describe <project> for the id). Empty: none.
 billing_account    = ""
@@ -29,5 +32,5 @@ circleback_people = []
 
 # MCP server. Off for now.
 deploy_mcp          = false
-mcp_auth            = "github" # github | google | none (none keeps discovery-mcp private)
+mcp_auth            = "github" # github | google | none (none keeps nua-mcp private)
 mcp_oauth_client_id = ""

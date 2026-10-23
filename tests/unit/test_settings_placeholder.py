@@ -1,4 +1,4 @@
-from discovery import settings
+from nua import settings
 
 
 def test_placeholder_secret_counts_as_unset(monkeypatch):

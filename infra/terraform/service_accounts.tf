@@ -1,12 +1,12 @@
 # Service accounts and the IAM between them, least privilege as before (formerly infra/setup.sh).
 #
-#   discovery-receiver, discovery-processor, discovery-mcp   one per Cloud Run service (discovery-mcp only with deploy_mcp)
-#   discovery-tasks                              the identity Cloud Tasks calls the processor as
-#   discovery-scheduler                          the identity Cloud Scheduler signs its OIDC tokens with
-#   discovery-build                              the identity Cloud Build runs infra/deploy.sh's builds as
+#   nua-receiver, nua-processor, nua-mcp   one per Cloud Run service (nua-mcp only with deploy_mcp)
+#   nua-tasks                              the identity Cloud Tasks calls the processor as
+#   nua-scheduler                          the identity Cloud Scheduler signs its OIDC tokens with
+#   nua-build                              the identity Cloud Build runs infra/deploy.sh's builds as
 #
 # Grants on Cloud Run services (who may invoke them) are in cloud_run.tf and mcp.tf, grants on secrets
-# in secrets.tf, the sign-in bucket grant in mcp.tf, discovery-build's grants in artifact_registry.tf.
+# in secrets.tf, the sign-in bucket grant in mcp.tf, nua-build's grants in artifact_registry.tf.
 
 resource "google_service_account" "sa" {
   for_each = local.service_accounts
@@ -26,7 +26,7 @@ resource "google_project_iam_member" "enqueuer" {
   member  = "serviceAccount:${google_service_account.sa[each.key].email}"
 }
 
-# ... and to attach discovery-tasks' OIDC token to them (actAs on discovery-tasks only).
+# ... and to attach nua-tasks' OIDC token to them (actAs on nua-tasks only).
 resource "google_service_account_iam_member" "enqueuer_acts_as_tasks" {
   for_each = toset(local.enqueuers)
 

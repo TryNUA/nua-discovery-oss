@@ -1,6 +1,6 @@
-"""Tests for discovery/sweep.py: the nightly sweep with fake recorder clients, a RecordingQueue and FakeSlack.
+"""Tests for nua/sweep.py: the nightly sweep with fake recorder clients, a RecordingQueue and FakeSlack.
 
-discovery/process.py (Task 12) is stubbed through sys.modules, so these tests never depend on it.
+nua/process.py (Task 12) is stubbed through sys.modules, so these tests never depend on it.
 """
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import types
 import pytest
 import yaml
 
-from discovery import frontmatter
-from discovery.digest import read_digest, write_digest
-from discovery.ingest.circleback import has_tag
-from discovery.ports import NullRemote
-from discovery.sweep import SweepReport, run_sweep
-from discovery.types import BriefRef, Digest
+from nua import frontmatter
+from nua.digest import read_digest, write_digest
+from nua.ingest.circleback import has_tag
+from nua.ports import NullRemote
+from nua.sweep import SweepReport, run_sweep
+from nua.types import BriefRef, Digest
 
 CUTOFF = "2026-09-01T00:00:00-07:00"
 OWNER = {"name": "Alex Rivera", "email": "alex.rivera@gmail.com"}
@@ -78,8 +78,8 @@ class ExistingRemote(NullRemote):
 
 @pytest.fixture
 def proc(monkeypatch):
-    """A stand-in for discovery.process with post_brief and batch_completion_check."""
-    mod = types.ModuleType("discovery.process")
+    """A stand-in for nua.process with post_brief and batch_completion_check."""
+    mod = types.ModuleType("nua.process")
     mod.briefed = []
     mod.checked = []
 
@@ -87,7 +87,7 @@ def proc(monkeypatch):
         mod.briefed.append(d.call_id)
         channel = ctx.channel("calls")
         ts = ctx.slack.post(channel, [], f"brief for {d.call_id}",
-                            metadata={"event_type": "discovery_brief", "event_payload": {"key": d.transcript}})
+                            metadata={"event_type": "nua_brief", "event_payload": {"key": d.transcript}})
         return BriefRef(channel=channel, ts=ts, thread=[])
 
     def batch_completion_check(ctx, batch_id):
@@ -96,7 +96,7 @@ def proc(monkeypatch):
 
     mod.post_brief = post_brief
     mod.batch_completion_check = batch_completion_check
-    monkeypatch.setitem(sys.modules, "discovery.process", mod)
+    monkeypatch.setitem(sys.modules, "nua.process", mod)
     return mod
 
 
@@ -459,7 +459,7 @@ def test_untagged_reminder_posted_once_per_meeting(live, proc):
 
     assert first.reminders == ["m_remind"]
     assert second.reminders == []
-    reminders = [m for m in _ops(live) if (m["metadata"] or {}).get("event_type") == "discovery_reminder"]
+    reminders = [m for m in _ops(live) if (m["metadata"] or {}).get("event_type") == "nua_reminder"]
     assert len(reminders) == 1
     text = reminders[0]["text"]
     assert "Coffee with Darius" in text and "discovery" in text and "Sam" in text
@@ -568,9 +568,9 @@ def _summary_check(proc):
     def check(ctx, batch_id):
         proc.checked.append(batch_id)
         channel, key = ctx.channel("calls"), f"batch:{batch_id}"
-        if ctx.slack.find_by_metadata(channel, "discovery_batch", key) is None:
+        if ctx.slack.find_by_metadata(channel, "nua_batch", key) is None:
             ctx.slack.post(channel, [], f"Backfill batch {batch_id} done",
-                           metadata={"event_type": "discovery_batch", "event_payload": {"key": key}})
+                           metadata={"event_type": "nua_batch", "event_payload": {"key": key}})
         return True
     proc.batch_completion_check = check
 
@@ -582,7 +582,7 @@ def test_batch_summary_ts_is_recorded_and_the_batch_never_checked_again(ctx, pro
     _write(ctx, "config/batches/def456.yml", yaml.safe_dump(["transcripts/b.md"]))
 
     first = run_sweep(ctx)
-    [s1, s2] = [m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "discovery_batch"]
+    [s1, s2] = [m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "nua_batch"]
     assert first.batches_checked == ["abc123", "def456"]
     assert yaml.safe_load(ctx.repo.read("config/batches/abc123.yml")) == {
         "batch": "abc123", "created": "2026-09-30T10:00:00-07:00", "paths": ["transcripts/a.md"],
@@ -596,7 +596,7 @@ def test_batch_summary_ts_is_recorded_and_the_batch_never_checked_again(ctx, pro
     second = run_sweep(ctx)
     assert second.batches_checked == []
     assert proc.checked == ["abc123", "def456"]
-    assert len([m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "discovery_batch"]) == 2
+    assert len([m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "nua_batch"]) == 2
     assert len(ctx.remote.commits) == 1
 
 
@@ -612,9 +612,9 @@ def test_unfinished_batch_records_nothing(ctx, proc):
 def test_batch_event_matches_process():
     import importlib
 
-    from discovery import sweep
+    from nua import sweep
 
-    real = importlib.import_module("discovery.process")
+    real = importlib.import_module("nua.process")
     assert sweep.BATCH_EVENT == real.BATCH_EVENT
     assert sweep.SUMMARY_TS == real.SUMMARY_TS
 
@@ -625,7 +625,7 @@ def test_reminder_escapes_slack_control_characters(live, proc):
     meeting = _meeting("m_evil", "2026-09-30T20:00:00Z", tags=(), name="<!channel> see <https://x.io|Circleback login>",
                        attendees=[{"name": "Jane <!here> & Co", "email": "jane@fund.com"}, OWNER])
     run_sweep(live, circleback={"sam": FakeCircleback([meeting])}, last_sweep="2026-09-30T02:00:00-07:00")
-    [m] = [m for m in _ops(live) if (m["metadata"] or {}).get("event_type") == "discovery_reminder"]
+    [m] = [m for m in _ops(live) if (m["metadata"] or {}).get("event_type") == "nua_reminder"]
     for text in (m["text"], m["blocks"][0]["text"]["text"]):
         assert "<" not in text and ">" not in text
         assert "&lt;!channel&gt; see &lt;https://x.io|Circleback login&gt;" in text
@@ -647,7 +647,7 @@ def test_summary_escapes_errors(live, proc):
 
 
 def test_section_trim_never_splits_an_entity():
-    from discovery.sweep import _section
+    from nua.sweep import _section
 
     [block] = _section("x" * 2994 + "&amp;" + "y" * 50)
     text = block["text"]["text"]
@@ -696,11 +696,11 @@ def test_unloadable_front_matter_is_skipped_and_named(live, proc, fm):
 
 @pytest.mark.parametrize("fm", _UNLOADABLE)
 def test_skipped_front_matter_reaches_the_log(live, proc, fm, caplog):
-    caplog.set_level("INFO", logger="discovery")
+    caplog.set_level("INFO", logger="nua")
     _write(live, "transcripts/darius-notes.md", f"---\n{fm}\n---\n\nTranscript:\nMe: hello\nThem: hi\n")
     run_sweep(live, granola=FakeGranola([_note("not_new1", "2026-09-30T17:00:00Z")]))
     assert any("transcripts/darius-notes.md" in r.getMessage()
-               for r in caplog.records if r.name.startswith("discovery") and r.levelname == "INFO")
+               for r in caplog.records if r.name.startswith("nua") and r.levelname == "INFO")
 
 
 @pytest.mark.parametrize("fm", ["date: 2026-09-31", *_UNLOADABLE])
@@ -725,13 +725,13 @@ class _DownSlack:
 
 def test_step_errors_and_the_summary_reach_the_log_when_slack_is_down(live, proc, caplog):
     live.slack = _DownSlack()
-    caplog.set_level("INFO", logger="discovery")
+    caplog.set_level("INFO", logger="nua")
     granola = FakeGranola([], fail_list=True)
 
     report = run_sweep(live, granola=granola)
 
     assert report.errors == ["granola: RuntimeError: granola is down", "ops summary: RuntimeError: slack 503"]
-    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING" and r.name.startswith("discovery")]
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING" and r.name.startswith("nua")]
     assert any("granola: RuntimeError: granola is down" in w for w in warnings)
     assert any("ops summary: RuntimeError: slack 503" in w for w in warnings)
     # the summary itself is logged before the post is tried, so it survives the failed post
@@ -739,21 +739,21 @@ def test_step_errors_and_the_summary_reach_the_log_when_slack_is_down(live, proc
 
 
 def test_summary_without_errors_is_logged_at_info(ctx, proc, caplog):
-    caplog.set_level("INFO", logger="discovery")
+    caplog.set_level("INFO", logger="nua")
     _transcript(ctx, "transcripts/d.md")
     run_sweep(ctx)
     [m] = _ops(ctx)
-    infos = [r.getMessage() for r in caplog.records if r.name.startswith("discovery") and r.levelname == "INFO"]
+    infos = [r.getMessage() for r in caplog.records if r.name.startswith("nua") and r.levelname == "INFO"]
     assert m["text"] in infos
-    assert not [r for r in caplog.records if r.name.startswith("discovery") and r.levelname == "WARNING"]
+    assert not [r for r in caplog.records if r.name.startswith("nua") and r.levelname == "WARNING"]
 
 
 def test_summary_is_logged_when_there_is_no_slack_client(ctx, proc, caplog):
     ctx.slack = None
-    caplog.set_level("INFO", logger="discovery")
+    caplog.set_level("INFO", logger="nua")
     _transcript(ctx, "transcripts/d.md")
     run_sweep(ctx)
-    assert any("transcripts/d.md" in r.getMessage() for r in caplog.records if r.name.startswith("discovery"))
+    assert any("transcripts/d.md" in r.getMessage() for r in caplog.records if r.name.startswith("nua"))
     assert any("no Slack client, sweep summary not posted" in r.getMessage()
                for r in caplog.records if r.levelname == "WARNING")
 

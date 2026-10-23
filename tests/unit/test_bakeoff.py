@@ -5,15 +5,16 @@ import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 
 from conftest import FIXTURE_NAMES, ROOT, copy_config, fixture_text
-from discovery import bakeoff, extract, merge, verdicts, verify
-from discovery.beliefs import parse_beliefs
-from discovery.context import Ctx
-from discovery.llm import FakeLLM, LLMError
-from discovery.parse import parse, write_standard
-from discovery.prep import parse_prep
-from discovery.types import Claim, Digest, Quote
+from nua import bakeoff, extract, merge, verdicts, verify
+from nua.beliefs import parse_beliefs
+from nua.context import Ctx
+from nua.llm import FakeLLM, LLMError
+from nua.parse import parse, write_standard
+from nua.prep import parse_prep
+from nua.types import Claim, Digest, Quote
 
 GOLDEN = ROOT / "tests" / "golden"
 EM_DASH = chr(0x2014)
@@ -196,7 +197,7 @@ def test_fake_generic_replies():
 
 
 def test_fake_ask_map_and_reduce():
-    ask = pytest.importorskip("discovery.ask")
+    ask = pytest.importorskip("nua.ask")
     r = bakeoff.LabelResponder({}, [])
     claims = [Claim(id="c01", text="Small stores overwrite their camera footage.", quote="loop over"),
               Claim(id="c02", text="Attorneys make liability claims cost more.", quote="the claim costs more")]
@@ -215,7 +216,7 @@ def test_fake_ask_map_and_reduce():
 
 
 def test_fake_rollup_cites_one_finding_per_call():
-    rollup = pytest.importorskip("discovery.rollup")
+    rollup = pytest.importorskip("nua.rollup")
     r = bakeoff.LabelResponder({}, [])
     prompt = "\n".join(f"[{cid}#c0{n}] NEW claims adjuster (staff); undated; X; unprompted. Text. Quote: \"q\""
                        for cid in ("a_call", "b_call", "c_call", "d_call") for n in (1, 2))
@@ -403,4 +404,86 @@ def test_best_judge_skips_a_judge_that_errored():
 
 
 def test_module_has_no_em_dash():
-    assert EM_DASH not in (ROOT / "discovery" / "bakeoff.py").read_text(encoding="utf-8")
+    assert EM_DASH not in (ROOT / "nua" / "bakeoff.py").read_text(encoding="utf-8")
+
+
+# ---------- a team's own labels ----------
+
+def own_labels(root: Path, names: list[str]) -> Path:
+    """`labels/` under root: the given shipped labels, each pointing at its transcript in `calls/`, and no
+    verdict cases."""
+    folder = root / "labels"
+    folder.mkdir()
+    (root / "calls").mkdir()
+    for name in names:
+        shutil.copy(ROOT / "tests" / "fixtures" / f"{name}.md", root / "calls" / f"{name}.md")
+        label = bakeoff.load_labels(ROOT)[name]
+        (folder / f"{name}.yml").write_text(yaml.safe_dump({**label, "transcript": f"calls/{name}.md"},
+                                                           sort_keys=False), encoding="utf-8")
+    return folder
+
+
+def test_run_bakeoff_scores_a_labels_folder(tmp_path):
+    copy_config(tmp_path)
+    own_labels(tmp_path, ["lena-okafor", "viktor-lang"])
+    ctx = Ctx.for_tests(tmp_path)
+    bakeoff.install_fakes(ctx, ["fake:good"], root=tmp_path, labels="labels")
+    report = bakeoff.run_bakeoff(ctx, ["fake:good"], root=tmp_path, labels="labels")
+    assert report.fixtures == ["lena-okafor", "viktor-lang"]
+    assert report.extractors[0].recall == 1.0
+    assert not report.has_cases and "no verdict cases" in report.table()
+    assert "judging was skipped" in (tmp_path / report.path).read_text(encoding="utf-8")
+    with pytest.raises(FileNotFoundError):
+        bakeoff.run_bakeoff(ctx, ["fake:good"], root=tmp_path, labels="nowhere")
+
+
+def test_fixture_path_order(tmp_path):
+    folder = tmp_path / "labels"
+    folder.mkdir()
+    (tmp_path / "transcripts").mkdir()
+    (tmp_path / "transcripts" / "x.md").write_text("t")
+    assert bakeoff.fixture_path(tmp_path, "x", {}, folder) == tmp_path / "transcripts" / "x.md"
+    (folder / "x.md").write_text("t")
+    assert bakeoff.fixture_path(tmp_path, "x", {}, folder) == folder / "x.md"
+    (tmp_path / "y.md").write_text("t")
+    assert bakeoff.fixture_path(tmp_path, "x", {"transcript": "y.md"}, folder) == tmp_path / "y.md"
+    assert bakeoff.fixture_path(tmp_path, "z", {}, folder) is None
+
+
+@pytest.mark.parametrize("name", FIXTURE_NAMES)
+def test_draft_label_round_trips_the_labels(ctx, name):
+    """With the label-backed fakes, a draft label holds the labeled findings, in the labels format."""
+    bakeoff.install_fakes(ctx)
+    ctx.repo.write(f"transcripts/{name}.md", fixture_text(name))
+    fixture, text = bakeoff.draft_label(ctx, f"transcripts/{name}.md")
+    assert fixture == name and text.startswith("# DRAFT label")
+    draft = yaml.safe_load(text)
+    label = bakeoff.load_labels(ROOT)[name]
+    assert draft["speaker_labels"] == label["speaker_labels"]
+    assert draft["transcript"] == f"transcripts/{name}.md"
+    assert len(draft["findings"]) == len(label["findings"])
+    assert all(1 <= len(f["quotes"]) <= 3 and all(q["speaker"] for q in f["quotes"]) for f in draft["findings"])
+    if label["speaker_labels"] in ("me_them", "single_stream"):
+        assert all(q["attribution"] == "inferred" for f in draft["findings"] for q in f["quotes"])
+    parsed = parsed_fixture(name)
+    claims = label_claims(parsed, draft["findings"])
+    assert len(bakeoff.match_labels(parsed, label["findings"], claims)) == len(label["findings"])
+    assert EM_DASH not in text
+
+
+def test_label_command_writes_a_draft_and_bakeoff_scores_it(tmp_path, capsys):
+    from nua import __main__ as cli
+
+    copy_config(tmp_path)
+    for sub in ("fixtures", "labels", "golden"):
+        shutil.copytree(ROOT / "tests" / sub, tmp_path / "tests" / sub)
+    (tmp_path / "transcripts").mkdir()
+    args = ["--root", str(tmp_path), "label", str(tmp_path / "tests" / "fixtures" / "wade-pruitt.md"), "--fake"]
+    assert cli.main(args) == 0
+    draft = tmp_path / "labels" / "wade-pruitt.yml"
+    assert draft.exists() and "bakeoff --labels labels" in capsys.readouterr().out
+    assert cli.main(args) == 1, "an existing draft is never overwritten without --force"
+    assert cli.main([*args, "--force"]) == 0
+    code = cli.main(["--root", str(tmp_path), "bakeoff", "--fake", "--labels", "labels", "--models", "fake:a"])
+    out = capsys.readouterr().out
+    assert code == 0 and "wade-pruitt" in out and "1.00" in out

@@ -1,4 +1,4 @@
-"""Tests for discovery/ask.py: map/reduce over every digested call, coverage and quote checks. Offline."""
+"""Tests for nua/ask.py: map/reduce over every digested call, coverage and quote checks. Offline."""
 from __future__ import annotations
 
 import re
@@ -6,11 +6,11 @@ import threading
 
 import pytest
 
-from discovery import ask as ask_mod
-from discovery.ask import AskResult, ask
-from discovery.digest import write_digest
-from discovery.llm import FakeLLM, LLMError
-from discovery.types import Claim, Digest, Scope
+from nua import ask as ask_mod
+from nua.ask import AskResult, ask
+from nua.digest import write_digest
+from nua.llm import FakeLLM, LLMError
+from nua.types import Claim, Digest, Scope
 from conftest import fixture_text
 
 EM_DASH = chr(0x2014)
@@ -80,7 +80,7 @@ def _register(ctx, map_responder, reduce_responder):
 # ---------- the prompt ----------
 
 def test_prompt_has_map_and_reduce():
-    from discovery.prompts import ask as prompt
+    from nua.prompts import ask as prompt
     for text in (prompt.SYSTEM, prompt.MAP, prompt.REDUCE):
         assert text.strip() and EM_DASH not in text
 
@@ -373,7 +373,7 @@ def test_unknown_map_model_counts_every_batch_unread(ctx, monkeypatch):
     def boom(spec, cost=None):
         raise LLMError(f"{spec} has no key")
 
-    monkeypatch.setattr("discovery.providers.build", boom)
+    monkeypatch.setattr("nua.providers.build", boom)
     ctx.llms.register(FakeLLM(ctx.config.pipeline.ask_reduce, _reduce()))
     res = ask(ctx, "Q?")
     assert (res.read, res.total) == (0, 1)

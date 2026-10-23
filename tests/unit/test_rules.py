@@ -1,14 +1,14 @@
-"""Tests for discovery/rules.py: internal-call rule, duplicates, winner choice, cofounder invites."""
+"""Tests for nua/rules.py: internal-call rule, duplicates, winner choice, cofounder invites."""
 from __future__ import annotations
 
 import pytest
 
-from discovery import config as config_mod
+from nua import config as config_mod
 from datetime import datetime, timezone
 
-from discovery.rules import (as_datetime, by_arrival, cofounder_invited, ingest_stamp, ingested_at, is_internal,
+from nua.rules import (as_datetime, by_arrival, cofounder_invited, ingest_stamp, ingested_at, is_internal,
                        note_version, pick_winner, same_call)
-from discovery.types import Attendee, ParsedTranscript
+from nua.types import Attendee, ParsedTranscript
 
 
 def make(path: str, *, labels: str = "named", start: str | None = None, date: str | None = None,
@@ -99,6 +99,15 @@ def test_ical_date_is_taken_in_pacific_time():
     assert same_call(a, b)
     c = make("transcripts/circleback_3.md", ical_uid="u", start="2026-09-19T07:10:00+00:00")
     assert not same_call(a, c)
+
+
+def test_ical_date_is_taken_in_the_configured_zone():
+    # 14:30 and 15:30 UTC on the 18th: the same day in Pacific, but 23:30 on the 18th and 00:30 on the
+    # 19th in Tokyo.
+    a = make("transcripts/circleback_1.md", ical_uid="u", start="2026-09-18T14:30:00+00:00")
+    b = make("transcripts/circleback_2.md", ical_uid="u", start="2026-09-18T15:30:00+00:00")
+    assert same_call(a, b)
+    assert not same_call(a, b, tz="Asia/Tokyo")
 
 
 def test_ical_uid_falls_back_to_date_field():
@@ -319,6 +328,26 @@ def test_as_datetime_reads_strings_datetimes_and_dates():
 
 def test_ingest_stamp_is_pacific_iso_with_offset():
     assert ingest_stamp(datetime(2026, 10, 1, 16, 0, 5, 123456, tzinfo=timezone.utc)) == "2026-10-01T09:00:05-07:00"
+
+
+def test_ingest_stamp_and_naive_values_use_the_given_zone():
+    late = datetime(2026, 10, 1, 23, 30, 5, tzinfo=timezone.utc)
+    assert ingest_stamp(late, "Europe/London") == "2026-10-02T00:30:05+01:00"
+    assert ingest_stamp(late, "Asia/Tokyo") == "2026-10-02T08:30:05+09:00"
+    assert ingest_stamp(late, "America/New_York") == "2026-10-01T19:30:05-04:00"
+    assert as_datetime("2026-11-02", "Europe/London").isoformat() == "2026-11-02T00:00:00+00:00"
+    naive = make("x.md", ingested="2026-10-01T09:00:00")
+    assert ingested_at(naive, "Asia/Tokyo").utcoffset().total_seconds() == 9 * 3600
+
+
+def test_naive_arrival_stamps_are_read_in_the_given_zone():
+    # 09:00 with no offset is 00:00Z in Tokyo and 16:00Z in Pacific, so it is earlier or later than 08:00Z.
+    naive = make("transcripts/circleback_a.md", ingested="2026-10-01T09:00:00")
+    utc = make("transcripts/circleback_b.md", ingested="2026-10-01T08:00:00Z")
+    assert by_arrival([naive, utc]) == [utc.path, naive.path]
+    assert by_arrival([naive, utc], tz="Asia/Tokyo") == [naive.path, utc.path]
+    assert pick_winner([naive, utc], []) is utc
+    assert pick_winner([naive, utc], [], tz="Asia/Tokyo") is naive
 
 
 def test_by_arrival_orders_known_first_then_legacy_then_stamps():

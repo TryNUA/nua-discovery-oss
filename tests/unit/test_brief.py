@@ -1,4 +1,4 @@
-"""Tests for discovery/brief.py: Slack blocks and plain text for the per-call brief."""
+"""Tests for nua/brief.py: Slack blocks and plain text for the per-call brief."""
 from __future__ import annotations
 
 import json
@@ -6,14 +6,14 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from discovery.brief import (MAX_BLOCKS, BriefMessages, finding_from_block, render_brief, render_text,
+from nua.brief import (MAX_BLOCKS, BriefMessages, finding_from_block, render_brief, render_text,
                        shown_quote)
-from discovery.types import (BeliefCheck, Claim, Decision, Digest, Entry, Flags, FollowUp, QuestionCoverage, Quote,
+from nua.types import (BeliefCheck, Claim, Decision, Digest, Entry, Flags, FollowUp, QuestionCoverage, Quote,
                        Scope, Verification)
 
 try:  # Task 3 builds the real class; fall back to a stand-in with the same lookup methods.
-    from discovery.beliefs import BeliefsDoc
-except ImportError:  # pragma: no cover - only while discovery/beliefs.py is missing
+    from nua.beliefs import BeliefsDoc
+except ImportError:  # pragma: no cover - only while nua/beliefs.py is missing
     @dataclass
     class BeliefsDoc:  # type: ignore[no-redef]
         entries: list[Entry] = field(default_factory=list)
@@ -348,8 +348,8 @@ def _locked_ids(msgs: BriefMessages) -> list[str]:
 def test_one_held_exactly_locks_one_finding_not_every_exactly():
     """Four "Exactly." answers. W-001 watched the second from its finding menu (the ref names the
     span), then B-001 held one more by a request: two findings lock, as findings.md places them."""
-    from discovery.brief import acted_on
-    from discovery.types import HistoryLine
+    from nua.brief import acted_on
+    from nua.types import HistoryLine
 
     def hist(action, ref, date, quote):
         return HistoryLine(date=date, action=action, who="Alex", via="slack", ref=ref, sources=[(CALL, quote)])
@@ -372,8 +372,8 @@ def test_one_held_exactly_locks_one_finding_not_every_exactly():
 
 
 def test_a_source_from_another_call_or_no_claim_locks_nothing():
-    from discovery.brief import acted_on
-    from discovery.types import HistoryLine
+    from nua.brief import acted_on
+    from nua.types import HistoryLine
 
     d = _exactly_digest()
     other = HistoryLine(date="2026-09-21", action="add", who="Alex", via="slack", ref="r1",
@@ -386,8 +386,8 @@ def test_a_source_from_another_call_or_no_claim_locks_nothing():
 
 
 def test_a_source_spanning_several_claims_locks_each_of_them():
-    from discovery.brief import acted_on
-    from discovery.types import HistoryLine
+    from nua.brief import acted_on
+    from nua.types import HistoryLine
 
     d = _full_digest()
     d.new_findings = ["c03", "c04", "c05"]

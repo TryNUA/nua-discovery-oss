@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Discovery Base: build the image and roll it out to the Cloud Run services (code only).
+# Nua Discovery: build the image and roll it out to the Cloud Run services (code only).
 #
 # Infrastructure (services, settings, env vars, secrets, IAM, queue, Scheduler) is Terraform's, in
 # infra/terraform/. This script only builds service/Dockerfile with Cloud Build, pushes it to Artifact
@@ -14,10 +14,10 @@
 #   PROJECT_ID=my-project bash infra/deploy.sh --dry-run     print the commands, run nothing
 #
 # Optional: REGION (default us-west1), IMAGE_TAG (default <UTC time>-<git short sha>), SERVICES
-# (default "discovery-processor discovery-receiver"; add discovery-mcp when deploy_mcp is on, e.g.
-# SERVICES="discovery-processor discovery-receiver discovery-mcp").
+# (default "nua-processor nua-receiver"; add nua-mcp when deploy_mcp is on, e.g.
+# SERVICES="nua-processor nua-receiver nua-mcp").
 #
-# The build runs as discovery-build and uploads its source to <project>-discovery-build, both made by Terraform
+# The build runs as nua-build and uploads its source to <project>-nua-build, both made by Terraform
 # (artifact_registry.tf), so stage 1 must be applied first.
 
 set -euo pipefail
@@ -35,17 +35,17 @@ done
 
 : "${PROJECT_ID:?set PROJECT_ID, e.g. my-discovery-project}"
 REGION="${REGION:-us-west1}"
-AR_REPO=discovery
-SERVICES="${SERVICES:-discovery-processor discovery-receiver}"
+AR_REPO=nua
+SERVICES="${SERVICES:-nua-processor nua-receiver}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -z "${IMAGE_TAG:-}" ]; then
   sha="$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo nogit)"
   IMAGE_TAG="$(date -u +%Y%m%d-%H%M%S)-${sha}"
 fi
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/discovery:${IMAGE_TAG}"
-BUILD_SA="projects/${PROJECT_ID}/serviceAccounts/discovery-build@${PROJECT_ID}.iam.gserviceaccount.com"
-SOURCE_DIR="gs://${PROJECT_ID}-discovery-build/source"
+IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/nua:${IMAGE_TAG}"
+BUILD_SA="projects/${PROJECT_ID}/serviceAccounts/nua-build@${PROJECT_ID}.iam.gserviceaccount.com"
+SOURCE_DIR="gs://${PROJECT_ID}-nua-build/source"
 
 # Print a command; run it unless --dry-run.
 run() {

@@ -1,0 +1,111 @@
+@import "../src/styles/tokens.css";
+@import "tailwindcss";
+
+/* Component/effect styles, split by purpose (see src/styles/) */
+@import "../src/styles/motion.css";
+@import "../src/styles/aperture.css";
+
+/* Theme is toggled via [data-theme="dark"] on <html> (see theme-provider). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-sunk: var(--bg-sunk);
+  --color-bg-raised: var(--bg-raised);
+  --color-bg-inset: var(--bg-inset);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  --color-rule: var(--rule);
+  --color-rule-2: var(--rule-2);
+  --color-rule-strong: var(--rule-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-ink: var(--accent-soft-ink);
+  --color-accent-solid-text: var(--accent-solid-text);
+
+  --color-success: var(--success);
+  --color-success-ink: var(--success-ink);
+  --color-success-soft: var(--success-soft);
+  --color-success-solid-text: var(--success-solid-text);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-ink: var(--destructive-ink);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-solid-text: var(--destructive-solid-text);
+
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-solid-text: var(--warning-solid-text);
+
+  --color-info: var(--info);
+  --color-info-ink: var(--info-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-solid-text: var(--info-solid-text);
+
+  /* Legacy aliases the copied components still use */
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-ink: var(--warn-ink);
+  --color-warn-soft: var(--warn-soft);
+
+  --shadow-xs: var(--sh-xs);
+  --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md);
+  --shadow-lg: var(--sh-lg);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-chrome: var(--r-chrome);
+
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-geist-mono);
+
+  --animate-nua-spin: nua-spin 0.8s linear infinite;
+  --animate-indeterminate: nua-indet 1.3s ease-in-out infinite;
+  --animate-rise-in: bf-rise 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  overscroll-behavior-y: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss01', 'cv11';
+  overscroll-behavior-y: none;
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility ring-nua {
+  box-shadow: var(--ring);
+}
+
+@utility ring-nua-danger {
+  box-shadow: var(--ring-danger);
+}

@@ -1,4 +1,4 @@
-"""Tests for discovery/ingest/granola.py: webhook signatures, the API client and the standard file."""
+"""Tests for nua/ingest/granola.py: webhook signatures, the API client and the standard file."""
 from __future__ import annotations
 
 import base64
@@ -9,10 +9,10 @@ import json
 import httpx
 import pytest
 
-from discovery import config as config_mod
-from discovery import frontmatter
-from discovery.ingest import granola
-from discovery.ingest.granola import GranolaClient, has_transcript, note_to_standard, transcript_length, verify_webhook
+from nua import config as config_mod
+from nua import frontmatter
+from nua.ingest import granola
+from nua.ingest.granola import GranolaClient, has_transcript, note_to_standard, transcript_length, verify_webhook
 
 SECRET = "whsec_" + base64.b64encode(b"granola-test-signing-key-0123456").decode()
 BODY = b'{"event_id":"evt_1","event_type":"note.generated","note_id":"not_1d3tmYTlCICgjy"}'
@@ -122,9 +122,9 @@ def _desktop_note() -> dict:
 
 
 def _parse(rel: str, text: str):
-    parse_mod = pytest.importorskip("discovery.parse")
+    parse_mod = pytest.importorskip("nua.parse")
     if not hasattr(parse_mod, "write_standard"):
-        pytest.skip("discovery.parse (Task 1) not implemented yet")
+        pytest.skip("nua.parse (Task 1) not implemented yet")
     return parse_mod.parse(rel, text)
 
 

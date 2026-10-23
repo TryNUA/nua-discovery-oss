@@ -99,6 +99,34 @@ wheels = [
 ]
 
 [[package]]
+name = "boto3"
+version = "1.43.118"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+    { name = "jmespath" },
+    { name = "s3transfer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/8b/5694c8433b5202f34a82def4edee274f7df1eba2919c66d9d389d2202ec8/boto3-1.43.118.tar.gz", hash = "sha256:c0620f799e0f0c222ba42c337b65cdbcd3da38a3121187f634d8926cbbb28a9c", size = 112649, upload-time = "2026-10-22T19:22:09.629Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bb/a3/65bb3d64928f3c2da17640b92044084150317f02adf22442cb0c52af2a8b/boto3-1.43.118-py3-none-any.whl", hash = "sha256:ab8f3d2c622ef039338b4f228d97ea55f1abd573d84bb9b9a5ee8cb6780c0ccd", size = 140045, upload-time = "2026-10-22T19:22:08.353Z" },
+]
+
+[[package]]
+name = "botocore"
+version = "1.43.118"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jmespath" },
+    { name = "python-dateutil" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d4/b8/3e55154ddaf1a6d1d4ddda85c0e5983205a3b7657edacd8ebba8c6fd774c/botocore-1.43.118.tar.gz", hash = "sha256:7f3f9d88cc9e847587690f82a42e3c3c292c3026c92c1e60d68a9310018e003f", size = 16420126, upload-time = "2026-10-22T19:22:04.81Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/ce/61b39a8e7a69af5ea43c1c3e1b0065a4866b42ccddf107e16686a3143614/botocore-1.43.118-py3-none-any.whl", hash = "sha256:a45d7ae570674161e4a3542d8c68633bf7503f92d1de781ef7361b79488eda6f", size = 16122016, upload-time = "2026-10-22T19:22:00.414Z" },
+]
+
+[[package]]
 name = "cachetools"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -453,57 +481,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f6/32/5f5d814ad9a903c4e45273baabc48fdfdf5f85b39c7c2434c2d247d3b062/cyclopts-5.0.0.tar.gz", hash = "sha256:8bee8822319f5cd90711f568aec54a0a02bd3571ddff45c94aa62405beed38b6", size = 236617, upload-time = "2026-09-23T23:44:54.128Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/4c/8dd6c8056bc6f8ba5f20452bfe32425a7f3fdb798c112e38c6cecda375ac/cyclopts-5.0.0-py3-none-any.whl", hash = "sha256:69c5d98bd48827a0f7c663b76f966f730652cbc48daa7625f1e69ae429b82376", size = 278147, upload-time = "2026-09-23T23:44:52.344Z" },
-]
-
-[[package]]
-name = "discovery-base"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "anthropic" },
-    { name = "fastapi" },
-    { name = "fastmcp" },
-    { name = "google-auth" },
-    { name = "google-cloud-tasks" },
-    { name = "google-genai" },
-    { name = "httpx" },
-    { name = "openai" },
-    { name = "pydantic" },
-    { name = "pyjwt", extra = ["crypto"] },
-    { name = "python-dotenv" },
-    { name = "pyyaml" },
-    { name = "slack-sdk" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", specifier = ">=0.40" },
-    { name = "fastapi", specifier = ">=0.110" },
-    { name = "fastmcp", specifier = ">=4.0.10,<5" },
-    { name = "google-auth", specifier = ">=2.30" },
-    { name = "google-cloud-tasks", specifier = ">=2.16" },
-    { name = "google-genai", specifier = ">=1.0" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "openai", specifier = ">=1.50" },
-    { name = "pydantic", specifier = ">=2.13,<3" },
-    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8" },
-    { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "pyyaml", specifier = ">=6" },
-    { name = "slack-sdk", specifier = ">=3.30" },
-    { name = "uvicorn", specifier = ">=0.30" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8" },
-    { name = "pytest-asyncio", specifier = ">=0.23" },
 ]
 
 [[package]]
@@ -1054,6 +1031,15 @@ wheels = [
 ]
 
 [[package]]
+name = "jmespath"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247fb5d1763a6cbe46eff7222eaeebafd9fa65d4bf5cb11/jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d", size = 27377, upload-time = "2026-01-22T16:35:26.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
+]
+
+[[package]]
 name = "joserfc"
 version = "1.7.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1199,6 +1185,61 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/de/1d/f4da6f02cdffe04d6362210b807146a26044c88d839208aec273bb0d9184/more_itertools-11.1.0.tar.gz", hash = "sha256:48e8f4d9e7e5878571ecf6f2b4e57634f93cd474cc8cfbd2376f2d11b396e30d", size = 145772, upload-time = "2026-05-22T14:14:29.909Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e8/3d/1087453384dbde46a8c7f9356eead2c58be8a7bf156bca40243377c85715/more_itertools-11.1.0-py3-none-any.whl", hash = "sha256:4b65538ae22f6fed0ce4874efd317463a7489796a0939fa66824dd542125a192", size = 72226, upload-time = "2026-05-22T14:14:28.824Z" },
+]
+
+[[package]]
+name = "nua-discovery"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "anthropic" },
+    { name = "boto3" },
+    { name = "fastapi" },
+    { name = "fastmcp" },
+    { name = "google-auth" },
+    { name = "google-cloud-tasks" },
+    { name = "google-genai" },
+    { name = "httpx" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "ruamel-yaml" },
+    { name = "slack-sdk" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40" },
+    { name = "boto3", specifier = ">=1.35" },
+    { name = "fastapi", specifier = ">=0.110" },
+    { name = "fastmcp", specifier = ">=4.0.10,<5" },
+    { name = "google-auth", specifier = ">=2.30" },
+    { name = "google-cloud-tasks", specifier = ">=2.16" },
+    { name = "google-genai", specifier = ">=1.0" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "openai", specifier = ">=1.50" },
+    { name = "pydantic", specifier = ">=2.13,<3" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8" },
+    { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "pyyaml", specifier = ">=6" },
+    { name = "ruamel-yaml", specifier = ">=0.18" },
+    { name = "slack-sdk", specifier = ">=3.30" },
+    { name = "uvicorn", specifier = ">=0.30" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-asyncio", specifier = ">=0.23" },
 ]
 
 [[package]]
@@ -1531,6 +1572,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+]
+
+[[package]]
 name = "python-dotenv"
 version = "1.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1774,6 +1827,27 @@ wheels = [
 ]
 
 [[package]]
+name = "ruamel-yaml"
+version = "0.19.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/3b/ebda527b56beb90cb7652cb1c7e4f91f48649fbcd8d2eb2fb6e77cd3329b/ruamel_yaml-0.19.1.tar.gz", hash = "sha256:53eb66cd27849eff968ebf8f0bf61f46cdac2da1d1f3576dd4ccee9b25c31993", size = 142709, upload-time = "2026-01-02T16:50:31.84Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/0c/51f6841f1d84f404f92463fc2b1ba0da357ca1e3db6b7fbda26956c3b82a/ruamel_yaml-0.19.1-py3-none-any.whl", hash = "sha256:27592957fedf6e0b62f281e96effd28043345e0e66001f97683aa9a40c667c93", size = 118102, upload-time = "2026-01-02T16:50:29.201Z" },
+]
+
+[[package]]
+name = "s3transfer"
+version = "0.19.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/49/c5/0a5ce655109cb96b8dfad36908a4e108d15f5dc2eff8fbc3146c4312e704/s3transfer-0.19.3.tar.gz", hash = "sha256:8326acc3d056d7f7b8a37110c7d2aea41f67e83f6ae79cd3b5fbcca34c726406", size = 166087, upload-time = "2026-10-19T19:19:49.751Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e2/a4/88f9e10498759121060b8050a1554753dfc04df39bbbcc7aad9ecc8d9440/s3transfer-0.19.3-py3-none-any.whl", hash = "sha256:24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553", size = 90252, upload-time = "2026-10-19T19:19:48.309Z" },
+]
+
+[[package]]
 name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1784,6 +1858,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl", hash = "sha256:0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137", size = 15554, upload-time = "2025-11-23T19:02:51.545Z" },
+]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
 ]
 
 [[package]]

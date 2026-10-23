@@ -1,0 +1,145 @@
+/* ---------------------------------------------------------
+   Nua design tokens. Light by default, dark via [data-theme="dark"].
+--------------------------------------------------------- */
+
+:root, [data-theme="light"] {
+  /* Surfaces, cool off-white, faint blue cast */
+  --bg:         #f6f7f9;
+  --bg-sunk:    #eaedf1;
+  --bg-raised:  #ffffff;
+  --bg-inset:   #e4e8ef;
+
+  /* Ink, near-black navy */
+  --ink:        #0d1320;
+  --ink-2:      #2c3447;
+  --ink-3:      #5b6477;
+  --ink-4:      #8a93a3;
+
+  /* Rules / dividers */
+  --rule:        #d4d9e0;
+  --rule-2:      #e7eaef;
+  --rule-strong: #b4bcc8;
+
+  /* Accent: navy (holds AA on white as a CTA) */
+  --accent:          #1e3a8a;
+  --accent-ink:      #172c6b;
+  --accent-soft:     #dde5f8;
+  --accent-soft-ink: #172c6b;
+  --accent-solid-text: #ffffff;
+
+  /* Semantics, Radix-tuned for AA/AAA on light surfaces */
+  --success:            #15803d;
+  --success-ink:        #14532d;
+  --success-soft:       #dcfce7;
+  --success-solid-text: #ffffff;
+
+  --destructive:            #b91c1c;
+  --destructive-ink:        #7f1d1d;
+  --destructive-soft:       #fee2e2;
+  --destructive-solid-text: #ffffff;
+
+  --warning:            #a16207;
+  --warning-ink:        #713f12;
+  --warning-soft:       #fef3c7;
+  --warning-solid-text: #ffffff;
+
+  --info:            #1d4ed8;
+  --info-ink:        #1e3a8a;
+  --info-soft:       #dbeafe;
+  --info-solid-text: #ffffff;
+
+  /* Legacy aliases, do not use in new code */
+  --danger:      var(--destructive);
+  --danger-ink:  var(--destructive-ink);
+  --danger-soft: var(--destructive-soft);
+  --warn:        var(--warning);
+  --warn-ink:    var(--warning-ink);
+  --warn-soft:   var(--warning-soft);
+
+  /* Focus rings */
+  --ring:             0 0 0 3px rgba(30, 58, 138, 0.28);
+  --ring-destructive: 0 0 0 3px rgba(185, 28, 28, 0.28);
+  --ring-danger:      var(--ring-destructive);
+
+  /* Shadows, navy-tinted */
+  --sh-xs: 0 1px 0 rgba(13, 19, 32, 0.04);
+  --sh-sm: 0 1px 2px rgba(13, 19, 32, 0.06), 0 1px 0 rgba(13, 19, 32, 0.03);
+  --sh-md: 0 6px 20px -8px rgba(13, 19, 32, 0.16), 0 2px 4px rgba(13, 19, 32, 0.06);
+  --sh-lg: 0 20px 40px -16px rgba(13, 19, 32, 0.22), 0 6px 12px rgba(13, 19, 32, 0.08);
+
+  /* Radii, elevation scale: chrome (floating windows) is the largest;
+     radius descends as elements recede into the flat content sheet.
+       chrome  14  floating chrome (sidebar, topbar)
+       lg/md    8  content surfaces + nested blocks (cards, tables, ledgers,
+                   modals, inputs), tight so they recede under the chrome
+       sm       6  small interactive controls (buttons, chips)
+       xs       4  micro controls (checkbox, kbd)
+     lg is aliased to the 8px content radius (was 12); xl is legacy. */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 8px;
+  --r-xl: 16px;
+  --r-chrome: 14px;
+}
+
+[data-theme="dark"] {
+  /* Surfaces, temperature-neutral charcoal (no blue cast) */
+  --bg:        #141414;
+  --bg-sunk:   #0e0e0e;
+  --bg-raised: #1e1e1e;
+  --bg-inset:  #242424;
+
+  --ink:    #ededed;
+  --ink-2:  #b4b4b4;
+  --ink-3:  #909090;
+  --ink-4:  #5e5e5e;
+
+  --rule:        #2c2c2c;
+  --rule-2:      #222222;
+  --rule-strong: #3a3a3a;
+
+  /* Accent, periwinkle navy; the only blue in the neutral UI */
+  --accent:          #8fb0fb;
+  --accent-ink:      #b3c8ff;
+  --accent-soft:     #1c2433;
+  --accent-soft-ink: #b3c8ff;
+  --accent-solid-text: #0a1834;
+
+  /* Semantics, solids brighter for contrast on near-black, softs deep+desaturated */
+  --success:            #4ade80;
+  --success-ink:        #86efac;
+  --success-soft:       #052e16;
+  --success-solid-text: #052e16;
+
+  --destructive:            #f87171;
+  --destructive-ink:        #fca5a5;
+  --destructive-soft:       #2c0a0a;
+  --destructive-solid-text: #2c0a0a;
+
+  --warning:            #fbbf24;
+  --warning-ink:        #fcd34d;
+  --warning-soft:       #2a1e05;
+  --warning-solid-text: #1c1305;
+
+  --info:            #60a5fa;
+  --info-ink:        #93c5fd;
+  --info-soft:       #0a1834;
+  --info-solid-text: #0a1834;
+
+  --danger:      var(--destructive);
+  --danger-ink:  var(--destructive-ink);
+  --danger-soft: var(--destructive-soft);
+  --warn:        var(--warning);
+  --warn-ink:    var(--warning-ink);
+  --warn-soft:   var(--warning-soft);
+
+  --ring:             0 0 0 3px rgba(143, 176, 251, 0.32);
+  --ring-destructive: 0 0 0 3px rgba(248, 113, 113, 0.32);
+  --ring-danger:      var(--ring-destructive);
+
+  --sh-xs: 0 1px 0 rgba(0, 0, 0, 0.25);
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.30), 0 1px 0 rgba(0, 0, 0, 0.20);
+  --sh-md: 0 6px 20px -8px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --sh-lg: 0 20px 40px -16px rgba(0, 0, 0, 0.60), 0 6px 12px rgba(0, 0, 0, 0.35);
+}

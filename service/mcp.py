@@ -46,18 +46,18 @@ from typing import Any, Callable, Iterator, Mapping
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
-from discovery import config as config_mod
-from discovery import frontmatter
-from discovery.beliefs import EMPTY_BELIEFS, BeliefsDoc, format_history, format_scope, parse_beliefs, parse_decisions
-from discovery.callid import slug_name
-from discovery.config import Config
-from discovery.context import Ctx
-from discovery.digest import apply_overrides, digest_path, is_stub, read_digest
-from discovery.ports import RepoFS
-from discovery.prep import parse_prep, validate_prep
-from discovery.types import SCOPE_KEYS, VERDICTS, Claim, Digest, Entry
+from nua import config as config_mod
+from nua import frontmatter
+from nua.beliefs import EMPTY_BELIEFS, BeliefsDoc, format_history, format_scope, parse_beliefs, parse_decisions
+from nua.callid import slug_name
+from nua.config import Config
+from nua.context import Ctx
+from nua.digest import apply_overrides, digest_path, is_stub, read_digest
+from nua.ports import RepoFS
+from nua.prep import parse_prep, validate_prep
+from nua.types import SCOPE_KEYS, VERDICTS, Claim, Digest, Entry
 
-SERVER_NAME = "discovery-base"
+SERVER_NAME = "nua-discovery"
 MAX_RESULT_CHARS = 150_000        # claude.ai caps a tool result at about this size (no override there)
 TRANSCRIPT_PAGE_CHARS = 60_000
 SYNC_MAX_AGE_SECONDS = 60
@@ -84,10 +84,10 @@ _WRITE = {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": Fal
 _META = {"anthropic/maxResultSizeChars": MAX_RESULT_CHARS}
 
 _clock: Callable[[], float] = time.monotonic   # replaced in tests
-log = logging.getLogger("discovery.mcp")
+log = logging.getLogger("nua.mcp")
 
 INSTRUCTIONS = """\
-discovery-base: every customer discovery call the team has recorded, digested at ingest. The team is listed in \
+nua-discovery: every customer discovery call the team has recorded, digested at ingest. The team is listed in \
 config/people.yml and what the discovery is about in config/domain.yml. The GitHub repo is the source of truth; \
 this server reads it.
 
@@ -141,7 +141,7 @@ def auth_from_env(env: Mapping[str, str] | None = None):
     """FastMCP OAuth provider chosen by `MCP_AUTH` (github | google), or None for an explicit "none".
 
     Fails closed: an unset or empty `MCP_AUTH` raises ValueError, so a revision deployed without it
-    refuses to start instead of serving the corpus to anyone (discovery-mcp is public). Only "none" turns
+    refuses to start instead of serving the corpus to anyone (nua-mcp is public). Only "none" turns
     sign-in off, for local runs and a private service (.env.example and infra/terraform set it).
 
     Reads `MCP_OAUTH_CLIENT_ID`, `MCP_OAUTH_CLIENT_SECRET`, `MCP_BASE_URL` (the service's public
@@ -442,7 +442,7 @@ def _statuses(ctx: Ctx, entries: list[Entry], digests: list[Digest]) -> dict[str
     """entry id -> indexes.EntryStatus, the same computation that writes beliefs-status.md."""
     if not entries:
         return {}
-    indexes = _module("discovery.indexes")
+    indexes = _module("nua.indexes")
     overrides = indexes.load_verdict_overrides(ctx.repo)
     live = _with_overrides(digests, ctx.config)
     return {e.id: indexes.entry_status(e, live, overrides, ctx.config) for e in entries}
@@ -615,7 +615,7 @@ def _get_call(ctx: Ctx, call_id: str, transcript_page: int | None) -> str:
 
 def _body_page(rel: str, raw: str, bounds: list[tuple[int, int]]) -> int | None:
     """Page holding the first character of the transcript body, or None when the file does not parse."""
-    from discovery.parse import parse
+    from nua.parse import parse
     try:
         body_start = parse(rel, raw).body_start
     except Exception:
@@ -681,8 +681,8 @@ def _belief_view(ctx: Ctx, digests: list[Digest], entry_id: str) -> str:
 
 def _ungrouped_findings(ctx: Ctx, digests: list[Digest], since: str | None) -> list[tuple[Digest, Claim]]:
     """Claims no current belief check touches and no theme holds yet, newest call first: the
-    "Ungrouped" part of findings.md, by the same rule (discovery.indexes.group_findings)."""
-    indexes = _module("discovery.indexes")
+    "Ungrouped" part of findings.md, by the same rule (nua.indexes.group_findings)."""
+    indexes = _module("nua.indexes")
     live = _with_overrides(digests, ctx.config)
     pairs = indexes.finding_claims(live, _read_beliefs(ctx.repo), indexes.load_verdict_overrides(ctx.repo))
     _, ungrouped = indexes.group_findings(live, pairs, indexes.load_themes(ctx.repo))
@@ -995,11 +995,11 @@ def _clean_scope(value: Any, where: str, errors: list[str]) -> dict[str, str]:
 
 def _find_quote(ctx: Ctx, d: Digest, quote: str) -> str | None:
     """The raw transcript text for `quote` in call `d`, or the claim quote it sits inside, or None."""
-    from discovery.verify import QuoteIndex, contains
+    from nua.verify import QuoteIndex, contains
     rel = d.transcript
     if rel and ctx.repo.exists(rel):
         try:
-            from discovery.parse import parse
+            from nua.parse import parse
             m = QuoteIndex(parse(rel, ctx.repo.read(rel))).find(quote)
             if m is not None:
                 return m.raw_text
@@ -1036,7 +1036,7 @@ def _already_backed(doc: BeliefsDoc, sources: list[dict[str, str]]) -> list[str]
 
     The processor makes the final call by span overlap; this catches the plain cases early.
     """
-    from discovery.verify import contains
+    from nua.verify import contains
     errors = []
     for s in sources:
         for entry_id, call_id, old in doc.current_sources():
@@ -1179,8 +1179,8 @@ def _enqueue_apply(ctx: Ctx, rel: str, content: str) -> bool:
     """
     if ctx.queue is None:
         return False
-    from discovery.tasks import task_name
-    payload = {"request_file": rel, "via": "agent"}     # the payload discovery.apply.apply_task and the sweep use
+    from nua.tasks import task_name
+    payload = {"request_file": rel, "via": "agent"}     # the payload nua.apply.apply_task and the sweep use
     nonce = f"{ctx.now().isoformat()}:{hashlib.sha256(content.encode('utf-8')).hexdigest()[:16]}"
     try:
         queued = ctx.queue.enqueue("apply_belief_change", payload,
@@ -1194,9 +1194,9 @@ def _enqueue_apply(ctx: Ctx, rel: str, content: str) -> bool:
 
 
 def _processor_check(req: dict) -> list[str]:
-    """Run the processor's own request check (discovery.apply.request_from_dict) so a bad file is never committed."""
+    """Run the processor's own request check (nua.apply.request_from_dict) so a bad file is never committed."""
     try:
-        apply = importlib.import_module("discovery.apply")
+        apply = importlib.import_module("nua.apply")
     except ImportError:
         return []
     try:
@@ -1293,7 +1293,7 @@ def build_server(ctx_factory: Callable[[], Ctx], *, auth=None) -> FastMCP:
             waited = int(_clock() - started)      # whole seconds spent waiting for or running a pull
             limit = _ask_deadline()
             deadline = max(min(ASK_MIN_SECONDS, limit), limit - waited)
-            result = _module("discovery.ask").ask(ctx, question.strip(), since=since, seat=seat or None,
+            result = _module("nua.ask").ask(ctx, question.strip(), since=since, seat=seat or None,
                                             deadline_seconds=deadline)
             payload = {"answer": result.answer, "coverage": result.coverage, "read": result.read,
                        "total": result.total, "citations": list(result.citations)}
@@ -1389,7 +1389,7 @@ def build_server(ctx_factory: Callable[[], Ctx], *, auth=None) -> FastMCP:
 def create_app():
     """ASGI app for the Cloud Run `mcp` service (`uvicorn --factory service.mcp:create_app`, path /mcp).
 
-    Each tool call gets `discovery.settings.build_ctx("mcp")`: the shared clone, remote and queue, with
+    Each tool call gets `nua.settings.build_ctx("mcp")`: the shared clone, remote and queue, with
     freshly read config and its own cost tracker. Sign-in comes from `auth_from_env`, which raises
     (so the app never starts) when `MCP_AUTH` is unset: only an explicit `none` serves without sign-in.
 
@@ -1399,7 +1399,7 @@ def create_app():
     which on Cloud Run is the Cloud Storage volume infra/terraform/mcp.tf mounts (one instance at most, so
     two never write it at once).
     """
-    settings = importlib.import_module("discovery.settings")
+    settings = importlib.import_module("nua.settings")
     server = build_server(lambda: settings.build_ctx("mcp"), auth=auth_from_env())
     return server.http_app(path="/mcp", stateless_http=True)
 

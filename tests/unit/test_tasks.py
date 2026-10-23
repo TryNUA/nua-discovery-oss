@@ -1,4 +1,4 @@
-"""Tests for discovery/tasks.py: task names, the Cloud Tasks queue (fake client) and the inline queue."""
+"""Tests for nua/tasks.py: task names, the Cloud Tasks queue (fake client) and the inline queue."""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ from datetime import timedelta
 import pytest
 from google.api_core import exceptions as gexc
 
-from discovery.tasks import CloudTasksQueue, InlineQueue, task_name
+from nua.tasks import CloudTasksQueue, InlineQueue, task_name
 
 NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -74,7 +74,7 @@ class FakeTasksClient:
 
 
 def make_queue(client):
-    return CloudTasksQueue(project="discovery-prod", location="us-west1", queue="discovery",
+    return CloudTasksQueue(project="discovery-prod", location="us-west1", queue="nua",
                            processor_url="https://processor-abc-uw.a.run.app/",
                            service_account="tasks@discovery-prod.iam.gserviceaccount.com", client=client)
 
@@ -84,7 +84,7 @@ def test_cloud_tasks_queue_builds_task_with_deadline_and_oidc():
     q = make_queue(client)
     assert q.enqueue("process_call", {"transcript": "transcripts/a.md"}) is True
     [call] = client.created
-    assert call["parent"] == "projects/discovery-prod/locations/us-west1/queues/discovery"
+    assert call["parent"] == "projects/discovery-prod/locations/us-west1/queues/nua"
     task = call["task"]
     assert task.dispatch_deadline == timedelta(seconds=1800)
     req = task.http_request
@@ -109,7 +109,7 @@ def test_cloud_tasks_queue_sets_every_task_deadline_and_name_and_delay():
     first, second = (c["task"] for c in client.created)
     assert first.dispatch_deadline == timedelta(seconds=1800)
     assert second.dispatch_deadline == timedelta(seconds=1800)
-    assert first.name == f"projects/discovery-prod/locations/us-west1/queues/discovery/tasks/{name}"
+    assert first.name == f"projects/discovery-prod/locations/us-west1/queues/nua/tasks/{name}"
     scheduled = first.schedule_time.timestamp()
     assert before + 299 <= scheduled <= time.time() + 301
     assert json.loads(second.http_request.body) == {"granola_only": True}

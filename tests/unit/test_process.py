@@ -1,8 +1,8 @@
-"""Tests for discovery/process.py: process_call, briefs, backfill batches and final failures. Offline.
+"""Tests for nua/process.py: process_call, briefs, backfill batches and final failures. Offline.
 
 Models are FakeLLMs driven by tests/labels/*.yml: the extractors return the labeled claims (the second
 one only every other claim, so found_by varies), the verdict models return the labeled belief checks and
-prep coverage, and repairs give up. discovery/indexes.py (Task 11) is stubbed so these tests only exercise
+prep coverage, and repairs give up. nua/indexes.py (Task 11) is stubbed so these tests only exercise
 process.py.
 """
 from __future__ import annotations
@@ -18,19 +18,19 @@ from pathlib import Path
 import pytest
 import yaml
 
-import discovery
-from discovery import extract as ex
-from discovery import merge
-from discovery import process as pr
-from discovery import verdicts as vd
-from discovery.bakeoff import _prompt_claims
-from discovery.beliefs import parse_beliefs
-from discovery.brief import render_text
-from discovery.digest import load_digests, read_digest, write_digest
-from discovery.ingest.granola import note_to_standard
-from discovery.llm import FakeLLM, LLMError
-from discovery.parse import parse, write_standard
-from discovery.verify import normalize
+import nua
+from nua import extract as ex
+from nua import merge
+from nua import process as pr
+from nua import verdicts as vd
+from nua.bakeoff import _prompt_claims
+from nua.beliefs import parse_beliefs
+from nua.brief import render_text
+from nua.digest import load_digests, read_digest, write_digest
+from nua.ingest.granola import note_to_standard
+from nua.llm import FakeLLM, LLMError
+from nua.parse import parse, write_standard
+from nua.verify import normalize
 
 from conftest import FIXTURE_NAMES, ROOT, fixture_text
 
@@ -51,8 +51,8 @@ GRANOLA = "transcripts/granola_abc.md"
 
 @pytest.fixture(autouse=True)
 def fake_indexes(monkeypatch):
-    """Replace discovery.indexes with a small stand-in: calls.csv only, and simple evidence counts."""
-    mod = types.ModuleType("discovery.indexes")
+    """Replace nua.indexes with a small stand-in: calls.csv only, and simple evidence counts."""
+    mod = types.ModuleType("nua.indexes")
     mod.GENERATED = ["calls.csv"]
     mod.regenerated = 0
 
@@ -86,8 +86,8 @@ def fake_indexes(monkeypatch):
     mod.evidence_counts = evidence_counts
     mod.load_verdict_overrides = load_verdict_overrides
     mod.overrides_seen = None
-    monkeypatch.setitem(sys.modules, "discovery.indexes", mod)
-    monkeypatch.setattr(discovery, "indexes", mod, raising=False)
+    monkeypatch.setitem(sys.modules, "nua.indexes", mod)
+    monkeypatch.setattr(nua, "indexes", mod, raising=False)
     return mod
 
 
@@ -300,7 +300,7 @@ def test_live_call_is_digested_and_briefed_once(golden, ctx, models, fake_indexe
 
     # brief: one top message carrying the transcript path, thread replies recorded on the digest
     [top] = top_messages(ctx)
-    assert top["metadata"] == {"event_type": "discovery_brief", "event_payload": {"key": path}}
+    assert top["metadata"] == {"event_type": "nua_brief", "event_payload": {"key": path}}
     assert top["text"].startswith("Darius Kemp · claims adjuster (staff) · 38m · Alex · Circleback")
     assert "Touches D-002" in top["text"]
     replies = ctx.slack.replies(ctx.channel("calls"), top["ts"])
@@ -339,6 +339,15 @@ def test_stale_prompt_version_is_reprocessed(golden, ctx, models):
     r = pr.process_call(ctx, path)
     assert (r.outcome, r.call_id, r.briefed) == ("digested", DARIUS_ID, False)
     assert digest(ctx).prompt_version == "v2"
+
+
+def test_call_id_date_is_the_start_date_in_the_configured_zone(golden, ctx, models):
+    # 16:00 Pacific on the 23rd is 08:00 on the 24th in Tokyo.
+    ctx.config.pipeline.timezone = "Asia/Tokyo"
+    r = pr.process_call(ctx, add_circleback(golden))
+    assert (r.outcome, r.call_id) == ("digested", "2026-09-24_darius-kemp")
+    d = digest(ctx, "2026-09-24_darius-kemp")
+    assert (d.date, d.date_source) == ("2026-09-24", "api")
 
 
 def test_one_extractor_down_is_degraded(golden, ctx, models):
@@ -448,12 +457,12 @@ def test_start_backfill_writes_batch_enqueues_and_summarizes_once(golden, ctx, m
     for t in queued:
         r = pr.process_call(ctx, t["payload"]["transcript"], batch=t["payload"]["batch"])
         assert r.briefed is False
-        posted = [m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "discovery_batch"]
+        posted = [m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "nua_batch"]
         assert len(posted) == (1 if t is queued[-1] else 0)
 
     [summary] = [m for m in ctx.slack.messages if m["metadata"]]
     assert summary["channel"] == ctx.channel("calls")
-    assert summary["metadata"] == {"event_type": "discovery_batch", "event_payload": {"key": "batch:abc123"}}
+    assert summary["metadata"] == {"event_type": "nua_batch", "event_payload": {"key": "batch:abc123"}}
     assert "4 transcripts" in summary["text"]
     assert "undated_darius-kemp" in summary["text"] and "unknown date" in summary["text"]
     assert EM_DASH not in summary["text"]
@@ -490,7 +499,7 @@ def test_found_summary_is_recorded_and_a_backfill_retry_keeps_summary_ts(golden,
     pr.process_call(ctx, path)
     rel = "config/batches/b3.yml"
     ctx.repo.write(rel, yaml.safe_dump({"batch": "b3", "created": "2026-09-20T10:00:00-07:00", "paths": [path]}))
-    key = {"event_type": "discovery_batch", "event_payload": {"key": "batch:b3"}}
+    key = {"event_type": "nua_batch", "event_payload": {"key": "batch:b3"}}
     ts = ctx.slack.post(ctx.channel("calls"), [], "Backfill batch b3 done", metadata=key)   # posted, not recorded
 
     assert pr.batch_completion_check(ctx, "b3") is True
@@ -863,7 +872,7 @@ def test_stub_never_overwrites_another_transcripts_digest(golden, ctx, models, s
     assert (golden / "digests" / f"{DARIUS_ID}.md").read_bytes() == before
     stub = digest(ctx, f"{DARIUS_ID}-2")
     assert (stub.status, stub.transcript) == (status, DROPPED_DARIUS)
-    from discovery.digest import digest_for_transcript
+    from nua.digest import digest_for_transcript
     digests = load_digests(ctx.repo)
     assert digest_for_transcript(digests, live).call_id == DARIUS_ID
     assert digest_for_transcript(digests, DROPPED_DARIUS).call_id == f"{DARIUS_ID}-2"
@@ -931,7 +940,7 @@ def test_batch_summary_shows_em_dash_filenames_with_a_hyphen(golden, ctx, models
         pr.process_call(ctx, p, batch="b9")
     assert pr.batch_completion_check(ctx, "b9") is True
 
-    [summary] = [m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "discovery_batch"]
+    [summary] = [m for m in ctx.slack.messages if (m["metadata"] or {}).get("event_type") == "nua_batch"]
     assert "transcripts/darius - copy.md (parse failed)" in summary["text"]
     assert "(transcripts/darius-kemp - notes.md): unknown date" in summary["text"]
     assert EM_DASH not in summary["text"]
@@ -1076,7 +1085,7 @@ def test_rerun_of_a_failed_copy_that_loses_drops_its_stub(golden, ctx, models, w
     assert (r.outcome, r.call_id, r.briefed) == ("duplicate", DARIUS_ID, False)
     assert [(d.call_id, d.transcript, d.duplicates) for d in load_digests(ctx.repo)] == [(DARIUS_ID, host, [copy_path])]
     assert {f"digests/{DARIUS_ID}.md", f"digests/{stub_id}.md"} <= set(ctx.remote.commits[-1]["paths"])
-    from discovery.digest import digest_for_transcript
+    from nua.digest import digest_for_transcript
     assert digest_for_transcript(load_digests(ctx.repo), copy_path).call_id == DARIUS_ID
     assert model_calls(models) == calls and len(ctx.slack.messages) == messages
     assert pr.process_call(ctx, copy_path).outcome == "skipped:current"
@@ -1163,7 +1172,7 @@ def test_slack_error_in_the_batch_check_does_not_mask_a_final_failure(golden, ct
 
 def _stale_selection(ctx) -> list[str]:
     """Transcripts the nightly sweep's step 7 would re-run now."""
-    from discovery.sweep import _Sweep
+    from nua.sweep import _Sweep
     ctx.queue.tasks.clear()
     _Sweep(ctx).stale_digests()
     return [t["payload"]["transcript"] for t in ctx.queue.of("process_call")]
@@ -1441,7 +1450,7 @@ def test_brief_shows_the_question_a_short_answer_answers(golden, ctx, short_answ
 
 def test_a_bad_date_override_is_ignored_and_reported(golden, ctx, models):
     # frontmatter.load_yaml keeps `2026-09-31` as text; applied as is, prep matching raised ValueError
-    from discovery.frontmatter import load_yaml
+    from nua.frontmatter import load_yaml
     ctx.config.overrides = load_yaml(f"{DARIUS_ID}: {{date: 2026-09-31, seat: underwriter}}\n")
     path = add_circleback(golden)
     for force in (False, True):                          # the first run and a later Re-run
@@ -1455,7 +1464,7 @@ def test_a_bad_date_override_is_ignored_and_reported(golden, ctx, models):
 
 
 def test_prep_matching_treats_an_unreadable_call_date_as_unknown(golden, ctx):
-    from discovery.types import Digest
+    from nua.types import Digest
     d = Digest(call_id=DARIUS_ID, transcript=CIRCLEBACK, status="digested", origin="live", date="2026-09-31",
                contact="Darius Kemp")
     assert pr._prep_for(ctx, d, None) is None            # no window without a date, and no email to match
@@ -1464,7 +1473,7 @@ def test_prep_matching_treats_an_unreadable_call_date_as_unknown(golden, ctx):
 def test_brief_shows_the_question_a_one_block_short_answer_answers(golden, ctx):
     # a Granola text export parses to one turn, so the question sits just before the answer in that turn
     # and the turn's own text runs to the end of the call
-    from discovery.types import BeliefCheck, Claim, Digest
+    from nua.types import BeliefCheck, Claim, Digest
     raw = fixture_text("viktor-lang")
     parsed = parse("transcripts/viktor-lang.md", raw, commit_date="2026-10-04")
     quote = "Not really, sorry."

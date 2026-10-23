@@ -1,14 +1,14 @@
 # The Docker repository infra/deploy.sh pushes the image to:
-#   <region>-docker.pkg.dev/<project>/discovery/discovery:<tag>
-# and what Cloud Build needs to build it there. Builds run as discovery-build (service_accounts.tf), not the
-# Compute Engine default account, which newer projects leave with no permissions. discovery-build may read
+#   <region>-docker.pkg.dev/<project>/nua/nua:<tag>
+# and what Cloud Build needs to build it there. Builds run as nua-build (service_accounts.tf), not the
+# Compute Engine default account, which newer projects leave with no permissions. nua-build may read
 # the source bucket, push to this repository and write build logs, nothing else.
 
-resource "google_artifact_registry_repository" "discovery" {
+resource "google_artifact_registry_repository" "nua" {
   location      = var.region
   repository_id = local.ar_repo
   format        = "DOCKER"
-  description   = "Discovery Base images"
+  description   = "Nua Discovery images"
 
   # Every deploy adds an image. Keep the 10 newest (the running one is always among them, and older
   # ones are there to roll back to); delete the rest once they are a week old. KEEP wins over DELETE.
@@ -33,8 +33,8 @@ resource "google_artifact_registry_repository" "discovery" {
 }
 
 resource "google_artifact_registry_repository_iam_member" "build_writer" {
-  location   = google_artifact_registry_repository.discovery.location
-  repository = google_artifact_registry_repository.discovery.name
+  location   = google_artifact_registry_repository.nua.location
+  repository = google_artifact_registry_repository.nua.name
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.sa["build"].email}"
 }

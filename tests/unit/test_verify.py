@@ -1,4 +1,4 @@
-"""Quote index and finding verification (discovery/verify.py): every quote of a finding is checked on its own."""
+"""Quote index and finding verification (nua/verify.py): every quote of a finding is checked on its own."""
 from __future__ import annotations
 
 import re
@@ -6,15 +6,15 @@ import re
 import pytest
 
 from conftest import fixture_text
-from discovery.types import Claim, ParsedTranscript, Quote, Turn
-from discovery.verify import (Match, QuoteIndex, contains, normalize, quote_overlap, token_overlap, verify_claims,
+from nua.types import Claim, ParsedTranscript, Quote, Turn
+from nua.verify import (Match, QuoteIndex, contains, normalize, quote_overlap, token_overlap, verify_claims,
                         verify_follow_ups)
 
 _TURN_LINE = re.compile(r"^\[(\d+:\d+(?::\d+)?)\] \*\*(.+?)\*\*: ?(.*)$", re.M)
 
 
 def circleback(name: str) -> ParsedTranscript:
-    """Build a ParsedTranscript for a Circleback copy fixture without depending on discovery.parse."""
+    """Build a ParsedTranscript for a Circleback copy fixture without depending on nua.parse."""
     raw = fixture_text(name)
     matches = list(_TURN_LINE.finditer(raw))
     turns = [Turn(index=i, time=m.group(1), speaker=m.group(2), text=m.group(3),
@@ -342,7 +342,7 @@ def test_same_turn_question_is_still_rejected_where_turns_separate_speakers():
 
 
 def test_granola_export_fixture_keeps_a_short_answer():
-    from discovery.parse import parse
+    from nua.parse import parse
     parsed = parse("transcripts/viktor-lang.md", fixture_text("viktor-lang"), commit_date="2026-10-04")
     assert (len(parsed.turns), parsed.speaker_labels) == (1, "single_stream")
     quote = "I only handle commercial."
@@ -400,7 +400,7 @@ def test_repair_returning_none_drops(darius):
 
 
 def test_repair_llm_error_counts_as_no_repair(darius):
-    from discovery.llm import LLMError
+    from nua.llm import LLMError
 
     def repair(c: Claim, q: Quote, reason: str) -> Quote | None:
         raise LLMError("down")
@@ -472,7 +472,7 @@ def test_unnamed_labels_keep_the_model_speaker():
 # ---------- follow-up quotes ----------
 
 def test_follow_up_quotes_are_checked_like_claim_quotes(darius):
-    from discovery.types import FollowUp
+    from nua.types import FollowUp
     real = _long_turn(darius, "Darius Kemp").text
     follow_ups = [
         FollowUp(direction="they_offered", what="intro", who="Darius Kemp",

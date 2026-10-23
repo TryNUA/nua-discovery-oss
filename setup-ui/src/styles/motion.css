@@ -1,0 +1,59 @@
+/* Split out of globals.css; imported there. */
+
+@keyframes nua-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nua-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes nua-indet {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(280%); }
+}
+
+@keyframes nua-dot-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* Batch-flow live card: steps/assertions easing in as they stream. Also reused
+   as the generic rise-in for tab panels and expanded sections. */
+@keyframes bf-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Knowledge chat: waiting-dots wave (subtle 3px lift, staggered per dot). */
+@keyframes kb-dot-wave {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Knowledge chat: streamed-word entrance (fast fade, no travel). */
+@keyframes kb-word-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Reduced motion: keep the opacity story, drop the travel. kb-word-in is
+   already opacity-only; the wave collapses to a gentle pulse. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes kb-dot-wave {
+    0%, 60%, 100% { transform: none; opacity: .5; }
+    30% { transform: none; opacity: 1; }
+  }
+  @keyframes bf-rise {
+    from { opacity: 0; transform: none; }
+    to { opacity: 1; transform: none; }
+  }
+  /* Indeterminate bars (Progress, the API setup rail): hold position mid-track
+     and breathe instead of sweeping. Gentler, not gone: the bar still reads as
+     "working", it just stops travelling. */
+  @keyframes nua-indet {
+    0%, 100% { transform: translateX(75%); opacity: 0.4; }
+    50% { transform: translateX(75%); opacity: 1; }
+  }
+}

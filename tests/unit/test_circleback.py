@@ -1,4 +1,4 @@
-"""Tests for discovery/ingest/circleback.py: signatures, the API client and the standard file."""
+"""Tests for nua/ingest/circleback.py: signatures, the API client and the standard file."""
 from __future__ import annotations
 
 import hashlib
@@ -8,10 +8,10 @@ import json
 import httpx
 import pytest
 
-from discovery import config as config_mod
-from discovery import frontmatter
-from discovery.ingest import circleback
-from discovery.ingest.circleback import (CirclebackClient, find_start, has_tag, has_transcript, payload_to_standard,
+from nua import config as config_mod
+from nua import frontmatter
+from nua.ingest import circleback
+from nua.ingest.circleback import (CirclebackClient, find_start, has_tag, has_transcript, payload_to_standard,
                                    verify_signature)
 
 SECRET = "cb-signing-secret-123"
@@ -51,9 +51,9 @@ def cfg(tmp_repo):
 
 
 def _parse(rel: str, text: str):
-    parse_mod = pytest.importorskip("discovery.parse")
+    parse_mod = pytest.importorskip("nua.parse")
     if not hasattr(parse_mod, "write_standard"):
-        pytest.skip("discovery.parse (Task 1) not implemented yet")
+        pytest.skip("nua.parse (Task 1) not implemented yet")
     return parse_mod.parse(rel, text)
 
 

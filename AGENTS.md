@@ -13,7 +13,7 @@ When the pipeline is deployed, calls arrive from the call recorder (Granola, or 
 1. Install with [uv](https://docs.astral.sh/uv/): `uv sync`. It builds `.venv` from `uv.lock`, dev tools included.
 2. Copy `.env.example` to `.env` and add the model keys the team uses (`GEMINI_API_KEY` is enough with the default models in `config/pipeline.yml`).
 3. Codex: allow network access when asked, or set `sandbox_workspace_write.network_access = true`, since `ask` calls model APIs and prep files and change requests are pushed to GitHub.
-4. Check it works: `uv run python -m discovery ask "which seats have we talked to?"`
+4. Check it works: `uv run python -m nua ask "which seats have we talked to?"`
 
 An MCP server (claude.ai connector) exists in `service/mcp.py` but is experimental and off by default. If your team has deployed it, its tools follow the same rules as this file.
 
@@ -31,12 +31,12 @@ An MCP server (claude.ai connector) exists in `service/mcp.py` but is experiment
 
 ## Cross-call questions
 
-In Slack, anyone in a channel the bot is in can mention it: "@<bot_name> <question>", where `bot_name` is set in `config/domain.yml` (default "Discovery Base"). Filters `since:YYYY-MM-DD` and `seat:"<seat>"` go anywhere in the message. It answers in the thread.
+In Slack, anyone in a channel the bot is in can mention it: "@<bot_name> <question>", where `bot_name` is set in `config/domain.yml` (default "Nua Discovery"). Filters `since:YYYY-MM-DD` and `seat:"<seat>"` go anywhere in the message. It answers in the thread.
 
 Never answer a question that spans the corpus from a subset of digests. Run:
 
 ```
-uv run python -m discovery ask "<question>" [--since YYYY-MM-DD] [--seat "<seat>"]
+uv run python -m nua ask "<question>" [--since YYYY-MM-DD] [--seat "<seat>"]
 ```
 
 - It reads every digest and prints a coverage line ("read N/N digests"). Pass the coverage line on to the person asking.
@@ -113,11 +113,11 @@ requested_at: <ISO timestamp with offset>   # optional; keeps an identical reque
 ## Conventions
 
 - Transcripts: `transcripts/granola_<note_id>.md`, `transcripts/circleback_<meeting_id>.md`, or the original name for dropped files. The pipeline reads `transcripts/` flat; files in subfolders are not processed.
-- Call id: `YYYY-MM-DD_firstname-lastname` (call date in Pacific time, main external speaker), or `undated_firstname-lastname` when the date is unknown. It is the filename stem in `digests/`. Each digest's `transcript` field points to its transcript file, and its `prep` field to its prep file.
+- Call id: `YYYY-MM-DD_firstname-lastname` (call date in the configured time zone, `timezone` in `config/pipeline.yml`, default America/Los_Angeles; main external speaker), or `undated_firstname-lastname` when the date is unknown. It is the filename stem in `digests/`. Each digest's `transcript` field points to its transcript file, and its `prep` field to its prep file.
 - Prep files: `prep/<planned-date>_<firstname-lastname>.md`, named before the call, so they may not match the call id.
 - Ids: `B-###` beliefs, `W-###` watching, `D-###` decisions. Findings are cited as call id plus one of their quotes.
-- Every digest records `prompt_version` and models, so a prompt change means re-running affected digests. Prompts are Python modules in `discovery/prompts/` (one str constant per part). `prompt_version` in `config/pipeline.yml` covers `extract.py`, `consolidate.py`, `verdict.py` and `arbiter.py` there, plus the model ids.
-- Dry run any pipeline change: `uv run python -m discovery run <transcript> --dry-run`.
+- Every digest records `prompt_version` and models, so a prompt change means re-running affected digests. Prompts are Python modules in `nua/prompts/` (one str constant per part). `prompt_version` in `config/pipeline.yml` covers `extract.py`, `consolidate.py`, `verdict.py` and `arbiter.py` there, plus the model ids.
+- Dry run any pipeline change: `uv run python -m nua run <transcript> --dry-run`.
 
 ## Style for anything the team reads
 

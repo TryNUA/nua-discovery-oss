@@ -1,6 +1,6 @@
-"""Tests for discovery/interact.py: Slack clicks and forms become locked items and queued change requests.
+"""Tests for nua/interact.py: Slack clicks and forms become locked items and queued change requests.
 
-The last tests feed the queued payloads through the real discovery.apply.apply_task, so the payload
+The last tests feed the queued payloads through the real nua.apply.apply_task, so the payload
 contract between the receiver and the processor is checked end to end.
 """
 from __future__ import annotations
@@ -10,13 +10,13 @@ import json
 import pytest
 import yaml
 
-from discovery import interact
-from discovery.beliefs import parse_beliefs
-from discovery.brief import render_brief
-from discovery.context import Ctx
-from discovery.digest import write_digest
-from discovery.tasks import task_name
-from discovery.types import BeliefCheck, Claim, Digest, Scope
+from nua import interact
+from nua.beliefs import parse_beliefs
+from nua.brief import render_brief
+from nua.context import Ctx
+from nua.digest import write_digest
+from nua.tasks import task_name
+from nua.types import BeliefCheck, Claim, Digest, Scope
 
 CALL = "2026-09-23_darius-kemp"
 # Verbatim spans of tests/fixtures/darius-kemp.md; LONG is the same span read from a richer copy.
@@ -113,7 +113,7 @@ def submit(ctx: Ctx, view: dict, values: dict[str, str], *, user: str = "U_ALEX"
 
 
 def proposal_message(ctx: Ctx, pid: str = "p-01") -> dict:
-    """A roll-up proposal reply, in discovery/rollup.py's layout."""
+    """A roll-up proposal reply, in nua/rollup.py's layout."""
     blocks = [
         {"type": "section", "block_id": f"item:prop:{pid}",
          "text": {"type": "mrkdwn", "text": f"*Add belief*  `{pid}`\n*Store footage is rarely kept long "
@@ -127,7 +127,7 @@ def proposal_message(ctx: Ctx, pid: str = "p-01") -> dict:
 
 
 def pressure_message(ctx: Ctx) -> dict:
-    """A roll-up under-pressure reply, in discovery/rollup.py's layout."""
+    """A roll-up under-pressure reply, in nua/rollup.py's layout."""
     blocks = [
         {"type": "section", "block_id": "item:pressure:B-001",
          "text": {"type": "mrkdwn", "text": "*Under pressure: B-001* Video footage is the most valuable "
@@ -141,7 +141,7 @@ def pressure_message(ctx: Ctx) -> dict:
 
 
 def split_message(ctx: Ctx, pid: str, parts: list[tuple[str, str]]) -> dict:
-    """A roll-up split proposal reply, in discovery/rollup.py's layout: one "- *part* (scope)" line per part."""
+    """A roll-up split proposal reply, in nua/rollup.py's layout: one "- *part* (scope)" line per part."""
     lines = [f"*Split B-001*  `{pid}`", "Now: Video footage is the most valuable evidence on a liability claim"]
     lines += [f"- *{text}* ({scope})" for text, scope in parts]
     blocks = [
@@ -327,7 +327,7 @@ def test_make_belief_opens_a_prefilled_form_with_a_blank_scope(ictx):
 
 
 def test_make_belief_with_a_blank_scope_takes_the_findings_scope(ictx):
-    from discovery import apply
+    from nua import apply
 
     _, replies = post_brief(ictx, darius_digest())
     findings = findings_reply(replies)
@@ -435,7 +435,7 @@ def test_reword_form_prefills_from_the_message(ictx):
 
 
 def test_reword_left_as_shown_needs_a_scope(ictx):
-    from discovery import apply
+    from nua import apply
 
     msg = pressure_message(ictx)
     interact.handle_interaction(ictx, click(msg, "pressure:B-001", button("pressure_reword", "Reword", "B-001")))
@@ -497,10 +497,10 @@ def test_locked_blocks_keeps_other_blocks_and_block_ids():
         {"type": "context", "block_id": "a:status", "elements": [{"type": "mrkdwn", "text": "Done"}]}] + out[2:]
 
 
-# ---------- contract with discovery.apply ----------
+# ---------- contract with nua.apply ----------
 
 def test_queued_watch_applies_through_apply_task(ictx):
-    from discovery import apply
+    from nua import apply
 
     _, replies = post_brief(ictx, darius_digest())
     findings = findings_reply(replies)
@@ -519,7 +519,7 @@ def test_queued_watch_applies_through_apply_task(ictx):
 
 
 def test_queued_wrong_read_applies_through_apply_task(ictx):
-    from discovery import apply
+    from nua import apply
 
     check = BeliefCheck(target="B-001", verdict="contradicts", claims=["c01"], decided_by="agree")
     top, _ = post_brief(ictx, darius_digest([check]))
@@ -582,7 +582,7 @@ def test_a_form_submitted_by_anyone_is_queued_under_their_handle(ictx):
 # ---------- split proposals with more than two parts ----------
 
 def test_edit_split_proposal_keeps_every_part(ictx):
-    from discovery import apply
+    from nua import apply
 
     parts = [("Carriers want the store video", "party: carrier"),
              ("Insureds overwrite the store video", "party: insured"),
@@ -659,7 +659,7 @@ def superseded_digest(checks: list[BeliefCheck] | None = None) -> Digest:
 
 
 def test_a_watch_queued_before_a_supersede_lands_on_the_quote_it_showed(ictx):
-    from discovery import apply
+    from nua import apply
 
     _, replies = post_brief(ictx, darius_digest())
     findings = findings_reply(replies)
@@ -673,7 +673,7 @@ def test_a_watch_queued_before_a_supersede_lands_on_the_quote_it_showed(ictx):
 
 
 def test_a_wrong_read_queued_before_a_supersede_dismisses_the_read_it_showed(ictx):
-    from discovery import apply
+    from nua import apply
 
     check = BeliefCheck(target="B-001", verdict="contradicts", claims=["c01"], decided_by="agree")
     top, _ = post_brief(ictx, darius_digest([check]))
@@ -724,7 +724,7 @@ def split_values(**changes: str) -> dict[str, str]:
 
 
 def test_edit_split_rewrites_one_part_and_drops_a_cleared_one(ictx):
-    from discovery import apply
+    from nua import apply
 
     view = open_split_edit(ictx)
     assert submit(ictx, view, split_values(statement_1="Carriers ask for the store video within 48 hours",
@@ -756,7 +756,7 @@ def test_edit_split_unchanged_sends_no_edits(ictx):
 
 
 def test_edit_split_blank_scopes_keep_each_parts_scope(ictx):
-    from discovery import apply
+    from nua import apply
 
     view = open_split_edit(ictx)
     assert submit(ictx, view, split_values(statement_2="Insureds rarely keep the store video")) is None

@@ -1,7 +1,7 @@
 """Command line and day-one repo files (Task 19).
 
-The wave-2 collaborators (`discovery.process`, `discovery.indexes`, `discovery.ask`, `discovery.rollup`, `discovery.sweep`,
-`discovery.backcheck`, `discovery.settings`) are stubbed in `sys.modules`, so these tests cover the CLI's own
+The wave-2 collaborators (`nua.process`, `nua.indexes`, `nua.ask`, `nua.rollup`, `nua.sweep`,
+`nua.backcheck`, `nua.settings`) are stubbed in `sys.modules`, so these tests cover the CLI's own
 plumbing. The `stub_process_call` below runs the real parse, extract, verify, merge and verdict
 steps with the `--fake` models, so the brief it prints is the real rendering of the labels. Tests
 marked "real pipeline" use the actual modules and skip until they exist.
@@ -18,11 +18,11 @@ import pytest
 import yaml
 
 from conftest import FIXTURE_NAMES, FIXTURES, PROCESSOR_CONFIG, ROOT, copy_config, fixture_text
-from discovery import __main__ as cli
-from discovery.beliefs import EMPTY_BELIEFS, parse_decisions
-from discovery.context import Ctx
-from discovery.digest import digest_path, read_digest, write_digest
-from discovery.types import Digest
+from nua import __main__ as cli
+from nua.beliefs import EMPTY_BELIEFS, parse_decisions
+from nua.context import Ctx
+from nua.digest import digest_path, read_digest, write_digest
+from nua.types import Digest
 
 GOLDEN = ROOT / "tests" / "golden"
 EM_DASH = chr(0x2014)
@@ -32,20 +32,20 @@ GENERATED = ["calls.csv", "claims.csv", "findings.md", "beliefs-status.md", "ope
 # ---------- stubs ----------
 
 def stub(monkeypatch, name: str, **attrs) -> types.ModuleType:
-    mod = types.ModuleType(f"discovery.{name}")
+    mod = types.ModuleType(f"nua.{name}")
     for key, value in attrs.items():
         setattr(mod, key, value)
-    monkeypatch.setitem(sys.modules, f"discovery.{name}", mod)
+    monkeypatch.setitem(sys.modules, f"nua.{name}", mod)
     return mod
 
 
 def stub_process_call(ctx, transcript, *, force=False, batch=None, beliefs_path="beliefs.md",
                       decisions_path="decisions.md", prep_path=None):
     """A small process_call over the real Task 1-7 modules: enough to render a real brief."""
-    from discovery import callid, digest, extract, merge, parse, verdicts, verify
-    from discovery.beliefs import parse_beliefs
-    from discovery.prep import parse_prep
-    from discovery.types import Verification
+    from nua import callid, digest, extract, merge, parse, verdicts, verify
+    from nua.beliefs import parse_beliefs
+    from nua.prep import parse_prep
+    from nua.types import Verification
 
     parsed = parse.parse(transcript, ctx.repo.read(transcript), commit_date="2026-10-04")
     results, degraded = extract.extract(ctx, parsed)
@@ -156,17 +156,17 @@ def test_find_root_walks_up(tmp_repo, monkeypatch):
     deep = tmp_repo / "digests" / "sub"
     deep.mkdir()
     monkeypatch.chdir(deep)
-    monkeypatch.delenv("DISCOVERY_ROOT", raising=False)
-    monkeypatch.delenv("DISCOVERY_REPO_ROOT", raising=False)
+    monkeypatch.delenv("NUA_ROOT", raising=False)
+    monkeypatch.delenv("NUA_REPO_ROOT", raising=False)
     assert cli.find_root(None) == tmp_repo.resolve()
-    monkeypatch.setenv("DISCOVERY_ROOT", str(tmp_repo))
+    monkeypatch.setenv("NUA_ROOT", str(tmp_repo))
     assert cli.find_root(None) == tmp_repo.resolve()
 
 
 def test_find_root_accepts_internal_repo_root(tmp_repo, tmp_path_factory, monkeypatch):
     monkeypatch.chdir(tmp_path_factory.mktemp("elsewhere"))      # not inside tmp_repo
-    monkeypatch.delenv("DISCOVERY_ROOT", raising=False)
-    monkeypatch.setenv("DISCOVERY_REPO_ROOT", str(tmp_repo))       # the name discovery/settings.py reads
+    monkeypatch.delenv("NUA_ROOT", raising=False)
+    monkeypatch.setenv("NUA_REPO_ROOT", str(tmp_repo))       # the name nua/settings.py reads
     assert cli.find_root(None) == tmp_repo.resolve()
 
 
@@ -174,8 +174,8 @@ def test_no_repo_found_is_an_error_not_an_empty_answer(tmp_path, monkeypatch, ca
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
-    monkeypatch.delenv("DISCOVERY_ROOT", raising=False)
-    monkeypatch.delenv("DISCOVERY_REPO_ROOT", raising=False)
+    monkeypatch.delenv("NUA_ROOT", raising=False)
+    monkeypatch.delenv("NUA_REPO_ROOT", raising=False)
     with pytest.raises(cli.CliError, match="no repo found"):
         cli.find_root(None)
     assert cli.main(["ask", "anything?", "--fake"]) == 1
@@ -324,7 +324,7 @@ BROKEN_DIGEST = ("---\ncall_id: 2026-09-01_jane-doe\ntranscript: transcripts/jan
 
 @pytest.mark.parametrize("show", [False, True])
 def test_run_names_an_unreadable_digest_instead_of_a_traceback(tmp_repo, capsys, monkeypatch, show):
-    pytest.importorskip("discovery.process")
+    pytest.importorskip("nua.process")
     shutil.copy(FIXTURES / "darius-kemp.md", tmp_repo / "transcripts" / "jane.md")
     (tmp_repo / "digests" / "2026-09-01_jane-doe.md").write_text(BROKEN_DIGEST, encoding="utf-8")
     monkeypatch.chdir(tmp_repo)
@@ -343,8 +343,8 @@ def test_run_names_an_unreadable_digest_instead_of_a_traceback(tmp_repo, capsys,
 def test_dry_run_over_a_digested_transcript_that_no_longer_parses_fails(tmp_repo, capsys):
     """AGENTS.md: dry run any pipeline change. A forced re-run that now fails to parse keeps the existing
     digest (skipped:parse_failed); the dry run must not print that old digest's brief as if it had worked."""
-    pytest.importorskip("discovery.process")
-    pytest.importorskip("discovery.indexes")
+    pytest.importorskip("nua.process")
+    pytest.importorskip("nua.indexes")
     assert cli.main(["--root", str(tmp_repo), "run", str(FIXTURES / "darius-kemp.md"), "--fake", "--no-digest"]) == 0
     assert (tmp_repo / "digests" / "undated_darius-kemp.md").exists()
     capsys.readouterr()
@@ -409,8 +409,8 @@ def test_run_reports_an_error(tmp_repo, monkeypatch, capsys):
 
 @pytest.mark.parametrize("name", FIXTURE_NAMES)
 def test_run_dry_run_fake_real_pipeline(tmp_repo, capsys, name):
-    pytest.importorskip("discovery.process")
-    pytest.importorskip("discovery.indexes")
+    pytest.importorskip("nua.process")
+    pytest.importorskip("nua.indexes")
     extra = ["--prep", str(GOLDEN / "prep_darius-kemp.md")] if name == "darius-kemp" else []
     code = cli.main(dry_run_args(tmp_repo, name, *extra))
     captured = capsys.readouterr()
@@ -420,7 +420,7 @@ def test_run_dry_run_fake_real_pipeline(tmp_repo, capsys, name):
 
 
 def test_reindex_real_pipeline(tmp_repo, capsys):
-    indexes = pytest.importorskip("discovery.indexes")
+    indexes = pytest.importorskip("nua.indexes")
     assert cli.main(["--root", str(tmp_repo), "reindex"]) == 0
     for rel in indexes.GENERATED:
         assert (tmp_repo / rel).exists(), rel
@@ -446,7 +446,7 @@ def test_backfill_processes_each_path_and_prints_a_summary(tmp_repo, pipeline, c
 
 
 def test_backfill_names_an_unreadable_digest_in_the_fix_up_list(tmp_repo, capsys):
-    pytest.importorskip("discovery.process")
+    pytest.importorskip("nua.process")
     shutil.copy(FIXTURES / "darius-kemp.md", tmp_repo / "transcripts" / "jane.md")
     (tmp_repo / "digests" / "2026-09-01_jane-doe.md").write_text(BROKEN_DIGEST, encoding="utf-8")
     code = cli.main(["--root", str(tmp_repo), "backfill", str(tmp_repo / "transcripts" / "jane.md"), "--fake"])
@@ -523,7 +523,7 @@ def test_ask_that_read_part_of_the_corpus_exits_0(tmp_repo, monkeypatch, capsys)
 
 
 def test_ask_fake_answers_without_keys(tmp_repo, capsys):
-    pytest.importorskip("discovery.ask")
+    pytest.importorskip("nua.ask")
     code = cli.main(["--root", str(tmp_repo), "ask", "anything?", "--fake"])
     assert code == 0
     assert "read 0/0 digests" in capsys.readouterr().out
@@ -531,8 +531,8 @@ def test_ask_fake_answers_without_keys(tmp_repo, capsys):
 
 def test_run_then_ask_fake_real_pipeline(tmp_repo, capsys):
     """Real pipeline: process a fixture into the working tree, then ask across it with fakes."""
-    pytest.importorskip("discovery.process")
-    pytest.importorskip("discovery.ask")
+    pytest.importorskip("nua.process")
+    pytest.importorskip("nua.ask")
     assert cli.main(["--root", str(tmp_repo), "run", str(FIXTURES / "darius-kemp.md"), "--fake"]) == 0
     capsys.readouterr()
     assert cli.main(["--root", str(tmp_repo), "ask", "How often does Darius get usable video?", "--fake"]) == 0
@@ -593,9 +593,9 @@ def test_rollup_prints_the_slack_preview(tmp_repo, monkeypatch, capsys):
 
 
 def test_sweep_builds_recorder_clients_from_env(tmp_repo, monkeypatch, capsys):
-    pytest.importorskip("discovery.settings")
-    from discovery.ingest.circleback import CirclebackClient
-    from discovery.ingest.granola import GranolaClient
+    pytest.importorskip("nua.settings")
+    from nua.ingest.circleback import CirclebackClient
+    from nua.ingest.granola import GranolaClient
     seen = {}
 
     def run_sweep(ctx, *, granola=None, circleback=None, granola_only=False, last_sweep=None):
@@ -665,8 +665,8 @@ def test_bakeoff_fake_prints_the_table_and_writes_the_report(tmp_path, capsys):
 
 def test_day_one_files(ctx):
     """The templates a fresh repo starts from, rendered in a temp repo; not the live repo's data."""
-    from discovery import indexes
-    from discovery.beliefs import parse_beliefs, render_beliefs
+    from nua import indexes
+    from nua.beliefs import parse_beliefs, render_beliefs
 
     assert parse_beliefs(EMPTY_BELIEFS).entries == []
     assert render_beliefs(parse_beliefs(EMPTY_BELIEFS)) == EMPTY_BELIEFS
@@ -704,12 +704,12 @@ def _blank_quotes(doc):
 
 
 def test_owned_files_have_no_em_dash(ctx):
-    from discovery import indexes
-    from discovery.beliefs import parse_beliefs, render_beliefs
-    from discovery.types import Entry, HistoryLine, Scope
+    from nua import indexes
+    from nua.beliefs import parse_beliefs, render_beliefs
+    from nua.types import Entry, HistoryLine, Scope
 
     # Code and hand-edited files hold no quotes, so they are checked whole.
-    for rel in ("discovery/__main__.py", "decisions.md"):
+    for rel in ("nua/__main__.py", "decisions.md"):
         assert EM_DASH not in (ROOT / rel).read_text(encoding="utf-8"), rel
 
     # The live beliefs.md: everything outside the verbatim source quotes. The round trip proves the

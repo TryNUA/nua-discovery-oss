@@ -2,13 +2,13 @@
 processor, to the repo and Slack. Fakes only.
 
 Every service shares one temporary repo. Models are the label-backed fakes behind `--fake`
-(`discovery.bakeoff.install_fakes`), Slack is `ports.FakeSlack`, and the git remote is `RepoRemote`, which writes
+(`nua.bakeoff.install_fakes`), Slack is `ports.FakeSlack`, and the git remote is `RepoRemote`, which writes
 created files into the working tree the way the next sync would bring them in. Tasks run inline:
 `tasks.InlineQueue` posts each task to the processor app's `POST /task/{kind}` as soon as it is enqueued
 (after the task that enqueued it, like the real queue with one dispatch at a time), and every response is
 kept in `Pipeline.results`.
 
-The last test is the P1 golden check: `uv run python -m discovery run tests/fixtures/darius-kemp.md --dry-run --fake` with
+The last test is the P1 golden check: `uv run python -m nua run tests/fixtures/darius-kemp.md --dry-run --fake` with
 the golden beliefs, decisions and prep must match `tests/expected/brief_darius-kemp.md` on what changed
 (target and verdict) and on new findings (quote spans overlapping by at least 50%, one to one).
 """
@@ -33,20 +33,20 @@ from fastapi.testclient import TestClient
 from fastmcp import Client
 
 from conftest import FIXTURES, ROOT, fixture_text
-from discovery import __main__ as cli
-from discovery import config as config_mod
-from discovery import frontmatter, interact
-from discovery.bakeoff import install_fakes, match_labels
-from discovery.beliefs import parse_beliefs
-from discovery.context import Ctx
-from discovery.digest import digest_path, load_digests, read_digest
-from discovery.ingest.granola import GranolaClient
-from discovery.llm import CostTracker, LLMFactory
-from discovery.parse import parse
-from discovery.ports import FakeSlack, NullRemote, RepoFS
-from discovery.tasks import InlineQueue
-from discovery.types import Claim
-from discovery.verify import QuoteIndex
+from nua import __main__ as cli
+from nua import config as config_mod
+from nua import frontmatter, interact
+from nua.bakeoff import install_fakes, match_labels
+from nua.beliefs import parse_beliefs
+from nua.context import Ctx
+from nua.digest import digest_path, load_digests, read_digest
+from nua.ingest.granola import GranolaClient
+from nua.llm import CostTracker, LLMFactory
+from nua.parse import parse
+from nua.ports import FakeSlack, NullRemote, RepoFS
+from nua.tasks import InlineQueue
+from nua.types import Claim
+from nua.verify import QuoteIndex
 from service import main
 from service import mcp as mcp_mod
 
@@ -182,8 +182,8 @@ def pipe(tmp_repo: Path, monkeypatch) -> Pipeline:
     pdata["ingest_cutoff"] = "2026-09-01T00:00:00-07:00"
     pipeline.write_text(yaml.safe_dump(pdata, sort_keys=False), encoding="utf-8")
     for name, value in {"GRANOLA_WEBHOOK_SECRET": GRANOLA_SECRET, "GITHUB_WEBHOOK_SECRET": GH_SECRET,
-                        "GITHUB_APP_SLUG": "discovery-base", "REPO_BRANCH": "main", "SLACK_SIGNING_SECRET": SLACK_SECRET,
-                        "DISCOVERY_DEV": "1", "DISCOVERY_TASK_MAX_ATTEMPTS": "5"}.items():
+                        "GITHUB_APP_SLUG": "nua-discovery", "REPO_BRANCH": "main", "SLACK_SIGNING_SECRET": SLACK_SECRET,
+                        "NUA_DEV": "1", "NUA_TASK_MAX_ATTEMPTS": "5"}.items():
         monkeypatch.setenv(name, value)
     for name in ("GRANOLA_API_KEY", "SLACK_BOT_TOKEN", "MCP_DEV_USER", "MCP_AUTH",
                  *(f"CIRCLEBACK_API_KEY_{p.upper()}" for p in ("alex", "sam", "jordan"))):
@@ -271,7 +271,7 @@ def test_live_granola_call_from_signed_webhook_to_posted_brief(pipe):
     assert d.claims and d.verification.quotes > 0
 
     [top] = pipe.tops()
-    assert top["metadata"] == {"event_type": "discovery_brief", "event_payload": {"key": rel}}
+    assert top["metadata"] == {"event_type": "nua_brief", "event_payload": {"key": rel}}
     assert top["text"].startswith("Darius Kemp · claims adjuster (staff) · 36m · Alex · Granola\n")
     assert "No belief touched." in top["text"]            # beliefs.md is empty before the bootstrap
     replies = pipe.slack.replies(CALLS, top["ts"])
@@ -311,8 +311,8 @@ def test_backfill_push_digests_every_copy_and_posts_one_summary(pipe):
     assert {d.call_id for d in digests} >= {"2026-09-23_darius-kemp", "2026-09-24_darius-kemp"}
 
     # no briefs, exactly one summary, posted by the last call to finish
-    assert pipe.tops("discovery_brief") == []
-    [summary] = pipe.tops("discovery_batch")
+    assert pipe.tops("nua_brief") == []
+    [summary] = pipe.tops("nua_batch")
     assert summary["metadata"]["event_payload"] == {"key": "batch:e2e0head"}
     assert summary["text"].startswith("Backfill batch e2e0head done: 6 transcripts. 6 digested.")
     # the check that posted it recorded its ts in the batch file
@@ -325,7 +325,7 @@ def test_backfill_push_digests_every_copy_and_posts_one_summary(pipe):
     pipe.assert_all_ok()
     assert pipe.ran()[7:] == ["sweep", "reindex", "backcheck"]
     assert pipe.result("sweep")["batches_checked"] == []
-    assert len(pipe.tops("discovery_batch")) == 1
+    assert len(pipe.tops("nua_batch")) == 1
     no_em_dash(pipe)
 
 
@@ -343,7 +343,7 @@ def test_bootstrap_proposal_approved_in_slack_then_backchecked(pipe):
     pipe.assert_all_ok()
     rollup = pipe.result("rollup")
     assert rollup["key"] == "rollup:bootstrap" and rollup["proposals"] == ["boot-01"] and rollup["posted"] == 1
-    [summary] = pipe.tops("discovery_rollup")
+    [summary] = pipe.tops("nua_rollup")
     [reply] = pipe.slack.replies(CALLS, summary["ts"])
     assert any(b.get("block_id") == "prop:boot-01" and b["type"] == "actions" for b in reply["blocks"])
     proposal = yaml.safe_load((pipe.root / "config/proposals.yml").read_text(encoding="utf-8"))["proposals"][0]
@@ -378,7 +378,7 @@ def test_bootstrap_proposal_approved_in_slack_then_backchecked(pipe):
     assert proposals[0]["status"] == "applied"
     [updated] = [m for m in pipe.slack.replies(CALLS, summary["ts"]) if m["ts"] == reply["ts"]]
     assert "Alex added B-001 via bootstrap" in json.dumps(updated["blocks"])
-    [notice] = pipe.tops("discovery_ref")
+    [notice] = pipe.tops("nua_ref")
     assert notice["metadata"]["event_payload"] == {"key": ref}
     assert notice["text"].startswith("Alex added B-001 via bootstrap: ")
 
@@ -423,7 +423,7 @@ def test_request_change_through_mcp_is_applied_by_the_processor(pipe, monkeypatc
     [line] = entry.history
     assert (line.action, line.who, line.via) == ("watch", "Sam", "agent")
     assert line.ref.startswith(f"{rel}@") and line.sources == [(call_id, ATTORNEY)]
-    [notice] = pipe.tops("discovery_ref")
+    [notice] = pipe.tops("nua_ref")
     assert notice["text"] == f"Sam added W-001 to Watching via agent: {statement}"
     [commit] = [c for c in pipe.remote.commits if rel in c["paths"]]
     assert "beliefs.md" in commit["paths"] and "beliefs-status.md" in commit["paths"]

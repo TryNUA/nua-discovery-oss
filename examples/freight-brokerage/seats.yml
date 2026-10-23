@@ -1,0 +1,24 @@
+# Example config/seats.yml for freight brokerage (examples/freight-brokerage/).
+# Seat list: the role someone speaks from on a call. The freight mode or workflow (reefer, LTL,
+# carrier onboarding...) goes in the claim scope, not the seat.
+
+# Brokerage operations
+- brokerage operations lead
+- carrier sales / capacity
+- account manager / customer sales
+- dispatcher / track and trace
+
+# Brokerage back office
+- carrier compliance / onboarding
+- freight accounting / payments
+- brokerage owner / executive
+
+# The other side of the load
+- shipper logistics manager
+- carrier owner / fleet manager
+- owner-operator / driver
+- factoring / freight finance
+
+# Any
+- former executive / advisor
+- other

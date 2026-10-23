@@ -1,0 +1,46 @@
+# What your discovery is about. Every prompt reads this file, so the pipeline works for any market.
+# Fill it in with `uv run python -m nua init`, or by hand. For filled-in examples see examples/insurance/
+# and examples/freight-brokerage/. Keep each value plain and specific: the models read it as the brief
+# for every call. Anything left empty falls back to a neutral default in nua/config.py, which is enough
+# for a `--fake` test run but too vague for real calls.
+
+# Your company, as the models should name it ("<company> people are the interviewers").
+company: ""
+
+# Who reads the findings and decides. Used as "the <team>" in prompts and briefs, e.g. "founders".
+team: ""
+
+# One line: who you are and what you are deciding, e.g. "a two-person startup deciding what to build
+# for independent dental practices".
+about: ""
+
+# The market in a few words, for short mentions ("discovery calls with people in <market>").
+market: ""
+
+# The problem areas you are exploring. Findings are judged against these.
+exploring: ""
+
+# Who you talk to, as a plain list. The seats you count evidence by are in config/seats.yml.
+interviewees: ""
+
+# Each finding is scoped so it is never stretched beyond what was said. Describe the three scope
+# fields for your market (the fourth, seat, comes from config/seats.yml). The keys stay the same.
+scope:
+  # the product line, workflow or use case a finding is about, with a few examples
+  line: ""
+  # the kind of organization a finding is about, with a few examples
+  party: ""
+  # the market segment: company size, region or tier, with a few examples
+  segment: ""
+
+# Where the main person on a call stands relative to what you are building (role_in_thesis), as
+# "id: description". Ids are short lowercase words; keep "expert" and "competitor". Empty means the
+# defaults in nua/config.py: customer, intermediary, vendor, expert, competitor.
+roles: {}
+
+# Examples of the short institution label each call gets (institution_type), e.g.
+# "independent practice, dental service organization, dental supply distributor".
+institution_examples: ""
+
+# The Slack app's display name, as people @mention it. Empty means "Nua Discovery".
+bot_name: ""

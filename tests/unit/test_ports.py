@@ -1,4 +1,4 @@
-"""Tests for discovery/ports.py RepoFS: repo files are never read or written through a symlink or outside the root.
+"""Tests for nua/ports.py RepoFS: repo files are never read or written through a symlink or outside the root.
 
 A committed symlink such as transcripts/x.md -> /proc/self/environ must not be listed as a transcript,
 read, parsed or sent to a model, and a symlinked directory must not get past a check on the leaf. Offline.
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from discovery.ports import RepoFS, UnsafePathError
+from nua.ports import RepoFS, UnsafePathError
 
 SECRET = "GITHUB_APP_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nANTHROPIC_API_KEY=sk-ant-xyz\n"
 

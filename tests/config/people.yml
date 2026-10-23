@@ -1,0 +1,24 @@
+# The fictional Acme team in the test fixtures (examples/insurance/). Tests copy this, never config/people.yml,
+# so `nua init` on a clone does not change what the tests see.
+# Your team: everyone who runs discovery calls. Keys are short ids used in change requests (requested_by)
+# and prep files (caller). email: the address their calls are recorded under (a personal address here
+# also counts as internal). slack_id: optional, shows their first name on belief changes from Slack.
+# github_login: MCP sign-in (experimental). circleback_key_name: used when they record on Circleback.
+alex:
+  name: Alex Rivera
+  email: alex.rivera@gmail.com
+  slack_id: null
+  github_login: null
+  circleback_key_name: circleback-key-alex
+sam:
+  name: Sam Chen
+  email: null
+  slack_id: null
+  github_login: null
+  circleback_key_name: circleback-key-sam
+jordan:
+  name: Jordan Lee
+  email: null
+  slack_id: null
+  github_login: null
+  circleback_key_name: circleback-key-jordan

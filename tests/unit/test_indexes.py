@@ -1,4 +1,4 @@
-"""Tests for discovery/indexes.py: generated index files and belief status."""
+"""Tests for nua/indexes.py: generated index files and belief status."""
 from __future__ import annotations
 
 import csv
@@ -7,9 +7,9 @@ import io
 import pytest
 import yaml
 
-from discovery.beliefs import BeliefsDoc, render_beliefs, render_decisions
-from discovery.digest import make_stub, write_digest
-from discovery.indexes import (
+from nua.beliefs import BeliefsDoc, render_beliefs, render_decisions
+from nua.digest import make_stub, write_digest
+from nua.indexes import (
     GENERATED,
     EntryStatus,
     entry_status,
@@ -21,7 +21,7 @@ from discovery.indexes import (
     regenerate,
     under_pressure,
 )
-from discovery.types import (
+from nua.types import (
     BeliefCheck,
     Claim,
     Decision,
@@ -395,7 +395,7 @@ def test_findings_place_identical_short_answers_as_apply_does():
 
 
 def ctx_config():
-    from discovery import config as config_mod
+    from nua import config as config_mod
     from conftest import ROOT
     return config_mod.load(ROOT)
 

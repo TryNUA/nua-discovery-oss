@@ -1,4 +1,4 @@
-"""Offline tests for discovery/providers.py. Every SDK client is a mock; nothing touches the network."""
+"""Offline tests for nua/providers.py. Every SDK client is a mock; nothing touches the network."""
 from __future__ import annotations
 
 import json
@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from discovery import providers
-from discovery.llm import CostCapExceeded, CostTracker, LLMError
+from nua import providers
+from nua.llm import CostCapExceeded, CostTracker, LLMError
 
 SCHEMA = {
     "type": "object",
@@ -361,7 +361,7 @@ def test_no_delays_means_one_attempt():
 
 
 def test_factory_builds_one_provider_per_spec_and_options(monkeypatch):
-    from discovery.llm import LLMFactory
+    from nua.llm import LLMFactory
     built = []
     monkeypatch.setattr(providers, "build", lambda spec, **kw: built.append((spec, kw)) or object())
     cost = CostTracker(cap_usd=5)
@@ -401,7 +401,7 @@ def test_timeouts_stop_retrying_before_the_call_cap():
     assert Hang.calls == 2 and delays == [providers.RETRY_DELAYS[0]]
     assert now[0] <= providers.MAX_CALL_SECONDS
     assert "TimeoutError" in str(err.value)
-    from discovery.runner import BUDGET_SECONDS
+    from nua.runner import BUDGET_SECONDS
     assert providers.MAX_CALL_SECONDS < BUDGET_SECONDS / 2     # extraction plus verdicts fit the task budget
 
 

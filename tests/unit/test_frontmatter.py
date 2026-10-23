@@ -1,4 +1,4 @@
-"""Tests for discovery/frontmatter.py: front-matter split and join, and the YAML loader config/ shares. Offline."""
+"""Tests for nua/frontmatter.py: front-matter split and join, and the YAML loader config/ shares. Offline."""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -6,7 +6,7 @@ from datetime import date, datetime
 import pytest
 import yaml
 
-from discovery import frontmatter
+from nua import frontmatter
 
 
 def test_split_and_join_round_trip():

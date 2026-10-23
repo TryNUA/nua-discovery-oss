@@ -1,13 +1,13 @@
-"""Tests for discovery/verdicts.py: the pure `combine` and `run_verdicts` with FakeLLMs. Offline."""
+"""Tests for nua/verdicts.py: the pure `combine` and `run_verdicts` with FakeLLMs. Offline."""
 from __future__ import annotations
 
 import importlib
 
 import pytest
 
-from discovery import verdicts as vd
-from discovery.llm import FakeLLM, LLMError
-from discovery.types import Attendee, Claim, Entry, HistoryLine, ParsedTranscript, Scope, Turn
+from nua import verdicts as vd
+from nua.llm import FakeLLM, LLMError
+from nua.types import Attendee, Claim, Entry, HistoryLine, ParsedTranscript, Scope, Turn
 
 A, B = "model:a", "model:b"
 
@@ -386,7 +386,7 @@ def test_schemas_are_strict():
 
 @pytest.mark.parametrize("name,request_name", [("verdict", "VERDICT"), ("arbiter", "ARBITER")])
 def test_prompts(name, request_name):
-    module = importlib.import_module(f"discovery.prompts.{name}")
+    module = importlib.import_module(f"nua.prompts.{name}")
     for text in (module.SYSTEM, getattr(module, request_name)):
         assert text.strip() and chr(0x2014) not in text
 
@@ -400,7 +400,7 @@ def test_claim_text_points_a_same_turn_question_before_the_quote():
 
 
 def test_claim_text_shows_every_quote_of_a_finding():
-    from discovery.types import Quote
+    from nua.types import Quote
     two = CLAIMS[1].model_copy(update={"quotes": [*CLAIMS[1].quotes,
                                                   Quote(quote="Not on a slip and fall.", turns=[9], speaker="Darius")]})
     lines = vd._claim_text(two).splitlines()

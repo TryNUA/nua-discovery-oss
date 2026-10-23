@@ -1,4 +1,4 @@
-"""Tests for discovery/digest.py: digest and stub files."""
+"""Tests for nua/digest.py: digest and stub files."""
 from __future__ import annotations
 
 import datetime as dt
@@ -6,8 +6,8 @@ import datetime as dt
 import pytest
 import yaml
 
-from discovery import frontmatter
-from discovery.digest import (
+from nua import frontmatter
+from nua.digest import (
     STUB_STATUSES,
     DigestError,
     apply_overrides,
@@ -25,8 +25,8 @@ from discovery.digest import (
     without_em_dashes,
     write_digest,
 )
-from discovery.ports import RepoFS
-from discovery.types import (
+from nua.ports import RepoFS
+from nua.types import (
     Attendee,
     BeliefCheck,
     BriefRef,
@@ -584,7 +584,7 @@ def test_overridden_digest_round_trips(tmp_path):
 
 
 def test_a_finding_with_several_quotes_round_trips_and_shows_each_quote(tmp_path):
-    from discovery.types import Quote
+    from nua.types import Quote
     d = full_digest()
     d.claims[0].quotes.append(Quote(quote="Market conduct exams. They read every note.", turns=[60, 61],
                                     offset=(19000, 19040), speaker="Darius Kemp", attribution="inferred"))

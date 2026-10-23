@@ -1,11 +1,11 @@
-"""Tests for discovery/parse.py: the three input shapes, offsets, dates and the standard writer."""
+"""Tests for nua/parse.py: the three input shapes, offsets, dates and the standard writer."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from discovery.parse import ParseError, pacific_date, parse, write_standard
+from nua.parse import ParseError, local_date, parse, write_standard
 
 FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
 NAMES = ["darius-kemp", "lena-okafor", "viktor-lang", "wade-pruitt"]
@@ -171,12 +171,31 @@ def test_unparseable_footer_date_is_unknown():
     assert (p.date, p.date_source) == (None, "unknown")
 
 
-def test_pacific_date():
-    assert pacific_date("2026-09-18T23:30:00-07:00") == "2026-09-18"
-    assert pacific_date("2026-09-19T05:30:00Z") == "2026-09-18"
-    assert pacific_date("2026-09-19T05:30:00+00:00") == "2026-09-18"
-    assert pacific_date("2026-09-18T16:00:00") == "2026-09-18"
-    assert pacific_date("2026-09-18") == "2026-09-18"
+def test_local_date_defaults_to_pacific():
+    assert local_date("2026-09-18T23:30:00-07:00") == "2026-09-18"
+    assert local_date("2026-09-19T05:30:00Z") == "2026-09-18"
+    assert local_date("2026-09-19T05:30:00+00:00") == "2026-09-18"
+    assert local_date("2026-09-18T16:00:00") == "2026-09-18"
+    assert local_date("2026-09-18") == "2026-09-18"
+
+
+def test_local_date_in_other_zones():
+    # 23:30 UTC on the 18th is the 19th in London in summer (BST, +01:00) and in Tokyo (+09:00),
+    # and still the 18th in London in winter (GMT).
+    assert local_date("2026-09-18T23:30:00Z", "Europe/London") == "2026-09-19"
+    assert local_date("2026-12-18T23:30:00Z", "Europe/London") == "2026-12-18"
+    assert local_date("2026-09-18T23:30:00Z", "Asia/Tokyo") == "2026-09-19"
+    assert local_date("2026-09-18T14:30:00Z", "Asia/Tokyo") == "2026-09-18"
+    assert local_date("2026-09-18T16:00:00", "Asia/Tokyo") == "2026-09-18"   # no offset: already local
+
+
+def test_call_date_from_start_uses_the_configured_zone():
+    raw = ("---\nsource: circleback\nsource_id: 9\nstart: '2026-09-18T23:30:00+00:00'\n---\n\n"
+           "## Transcript\n\n[0:01] **A B**: hi\n")
+    assert parse("transcripts/circleback_9.md", raw).date == "2026-09-18"
+    assert parse("transcripts/circleback_9.md", raw, tz="America/New_York").date == "2026-09-18"
+    p = parse("transcripts/circleback_9.md", raw, tz="Asia/Tokyo")
+    assert (p.date, p.date_source) == ("2026-09-19", "api")
 
 
 # ---------- Granola exports ----------
@@ -453,7 +472,7 @@ def test_start_out_of_datetime_range_is_ignored(start):
 
 
 def test_metadata_failure_is_a_parse_error_naming_the_file(monkeypatch):
-    import discovery.parse as parse_mod
+    import nua.parse as parse_mod
 
     def boom(value):
         raise TypeError("'int' object is not iterable")

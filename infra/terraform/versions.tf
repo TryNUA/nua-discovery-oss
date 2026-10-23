@@ -2,7 +2,7 @@
 #
 # State sits in a GCS bucket created once by hand (infra/README.md, "First-time setup"), never by this
 # configuration. The bucket and prefix are passed at init time so nothing project-specific is committed:
-#   terraform init -backend-config="bucket=<project>-tfstate" -backend-config="prefix=discovery"
+#   terraform init -backend-config="bucket=<project>-tfstate" -backend-config="prefix=nua"
 # For offline checks only: terraform init -backend=false && terraform validate
 
 terraform {

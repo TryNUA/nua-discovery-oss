@@ -1,0 +1,48 @@
+# Example config/domain.yml: a fictional startup (Acme) exploring AI for property and casualty insurance.
+# Start from it with `uv run python -m nua init --example insurance`, then make it yours.
+# Every prompt reads this file, so the pipeline works for any market.
+# Keep each value plain and specific: the models read it as the brief for every call.
+
+# Your company, as the models should name it ("Acme people are the interviewers").
+company: Acme
+
+# Who reads the findings and decides. Used as "the <team>" in prompts and briefs.
+team: cofounders
+
+# One line: who you are and what you are deciding.
+about: a three-person startup deciding what to build for property and casualty insurance
+
+# The market in a few words, for short mentions ("discovery calls with people in <market>").
+market: P&C insurance
+
+# The problem areas you are exploring. Findings are judged against these.
+exploring: >-
+  claims (including video and footage as evidence, and fraud), underwriting (submission intake and
+  research) and actuarial pricing and reserving
+
+# Who you talk to, as a plain list. The seats you count evidence by are in config/seats.yml.
+interviewees: >-
+  underwriters, actuaries, risk engineers, adjusters, claims leaders, SIU, brokers, MGAs and reinsurers
+
+# Each finding is scoped so it is never stretched beyond what was said. Describe the three scope
+# fields for your market (the fourth, seat, comes from config/seats.yml). The keys stay the same.
+scope:
+  line: "the line of business or coverage: workers' comp, commercial auto, cyber, habitational GL, travel, property..."
+  party: "who the finding is about: carrier, MGA, broker, insured, TPA, reinsurer, vendor..."
+  segment: "the market segment: small commercial, middle market, E&S, personal lines, specialty..."
+
+# Where the main person on a call stands relative to what you are building (role_in_thesis).
+# Ids are short lowercase words; keep "expert" and "competitor", rename or replace the rest.
+roles:
+  carrier: works at an insurer or reinsurer
+  intermediary: broker, MGA, TPA, independent adjusting firm
+  insured: buys insurance, for example a risk manager at a fleet
+  vendor: sells data, software or services to insurers
+  expert: consultant, advisor or former executive speaking from experience
+  competitor: builds something close to what you are building
+
+# Examples of the short institution label each call gets (institution_type).
+institution_examples: commercial carrier, MGA, independent adjusting firm, trucking fleet, reinsurer, broker, travel insurer
+
+# The Slack app's display name, as people @mention it.
+bot_name: Nua Discovery

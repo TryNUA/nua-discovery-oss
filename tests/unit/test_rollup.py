@@ -1,6 +1,6 @@
-"""Tests for discovery/rollup.py: thresholds, rejection filter, posting, retries and the bootstrap cap.
+"""Tests for nua/rollup.py: thresholds, rejection filter, posting, retries and the bootstrap cap.
 
-discovery.indexes is written in parallel, so every test swaps in the small stand-in below through
+nua.indexes is written in parallel, so every test swaps in the small stand-in below through
 `rollup._indexes`. Models are FakeLLMs; Slack is FakeSlack; nothing touches the network.
 """
 from __future__ import annotations
@@ -12,21 +12,21 @@ from zoneinfo import ZoneInfo
 import pytest
 import yaml
 
-from discovery import rollup
-from discovery.beliefs import BeliefsDoc, parse_beliefs, render_beliefs
-from discovery.digest import write_digest
-from discovery.llm import FakeLLM, LLMError
-from discovery.rollup import Proposal, rejection_suppressed, run_rollup
-from discovery.types import BeliefCheck, Claim, Digest, Entry, Flags, HistoryLine, Scope
+from nua import rollup
+from nua.beliefs import BeliefsDoc, parse_beliefs, render_beliefs
+from nua.digest import write_digest
+from nua.llm import FakeLLM, LLMError
+from nua.rollup import Proposal, rejection_suppressed, run_rollup
+from nua.types import BeliefCheck, Claim, Digest, Entry, Flags, HistoryLine, Scope
 
 EM_DASH = chr(0x2014)      # spelled this way so no file contains one
 PT = ZoneInfo("America/Los_Angeles")
 
 
-# ---------- a stand-in for discovery.indexes ----------
+# ---------- a stand-in for nua.indexes ----------
 
 def _fake_indexes() -> types.SimpleNamespace:
-    """The few discovery.indexes functions the roll-up uses, with simple rules."""
+    """The few nua.indexes functions the roll-up uses, with simple rules."""
 
     def is_dismissed(check, digest, overrides):
         return any(o.get("call_id") == digest.call_id and o.get("target") == check.target for o in overrides)
@@ -134,7 +134,7 @@ def _calls_across(seats: list[str | None], *, start_day=10, quote="We scrubbed s
 
 def _thread(ctx, key: str) -> tuple[dict, list[dict]]:
     ch = ctx.channel("calls")
-    ts = ctx.slack.find_by_metadata(ch, "discovery_rollup", key)
+    ts = ctx.slack.find_by_metadata(ch, "nua_rollup", key)
     assert ts, f"no summary for {key}"
     top = next(m for m in ctx.slack.messages if m["ts"] == ts)
     return top, ctx.slack.replies(ch, ts)
@@ -404,7 +404,7 @@ def test_posts_summary_then_one_reply_per_item(ctx, ix):
     _busy_week(ctx)
     out = run_rollup(ctx, week="2026-W40")
     top, replies = _thread(ctx, "rollup:2026-W40")
-    assert top["metadata"] == {"event_type": "discovery_rollup", "event_payload": {"key": "rollup:2026-W40"}}
+    assert top["metadata"] == {"event_type": "nua_rollup", "event_payload": {"key": "rollup:2026-W40"}}
     assert top["thread_ts"] is None
     assert "Roll-up 2026-W40" in top["text"]
     assert "B-001 went under pressure" in top["text"]
@@ -707,7 +707,7 @@ def test_themes_keep_previous_members_and_follow_renames(ctx, ix):
 
 
 def test_runs_against_the_real_indexes(ctx):
-    pytest.importorskip("discovery.indexes")
+    pytest.importorskip("nua.indexes")
     b1 = _entry("B-001", "Carriers pay for footage review tools", "beliefs")
     contra = _contradicted(b1, ["claims adjuster (staff)", "underwriter"], dates=["2026-09-28", "2026-09-29"])
     adds = _calls_across(["claims adjuster (staff)", "pricing actuary", "broker / agent"], start_day=20)
@@ -759,7 +759,7 @@ def test_malformed_model_output_is_ignored(ctx, ix):
 
 def test_previous_week_is_found_by_key_when_no_rollup_is_recorded(ctx, ix):
     ch = ctx.channel("calls")
-    ts = ctx.slack.post(ch, [], "old", metadata={"event_type": "discovery_rollup", "event_payload": {"key": "rollup:2026-W39"}})
+    ts = ctx.slack.post(ch, [], "old", metadata={"event_type": "nua_rollup", "event_payload": {"key": "rollup:2026-W39"}})
     ctx.slack.post(ch, [{"type": "section", "block_id": "item:prop:x", "text": {"type": "mrkdwn", "text": "x"}},
                         {"type": "actions", "block_id": "prop:x", "elements": []}], "x", thread_ts=ts)
     _write(ctx, [])
@@ -796,7 +796,7 @@ def test_a_rejected_merge_covers_only_its_target_set():
 
 
 def test_rejecting_one_bootstrap_watch_leaves_the_others_open(ctx, ix):
-    from discovery import apply
+    from nua import apply
     one = _digest("2026-08-01_guest-1", "claims adjuster (staff)", "2026-08-01", [_claim(1, "footage is scrubbed by hand here")])
     two = _digest("2026-08-02_guest-2", "pricing actuary", "2026-08-02", [_claim(1, "carriers never pay for our footage")])
     _write(ctx, [one, two])
@@ -885,7 +885,7 @@ def test_unanswered_single_call_findings_roll_into_the_next_rollup(ctx, ix):
 
 def _queued_approve(ctx, week: str, pid: str):
     """An Approve clicked on last week's item just before the roll-up ran, applied after it."""
-    from discovery import apply
+    from nua import apply
     top, replies = _thread(ctx, f"rollup:{week}")
     item = next(r for r in replies if f"item:prop:{pid}" in _block_ids(r))
     slack_item = {"channel": ctx.channel("calls"), "ts": item["ts"], "block_id": f"prop:{pid}",
