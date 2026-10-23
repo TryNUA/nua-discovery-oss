@@ -1,0 +1,62 @@
+# Judge test set: the three known conflicts across the four fixtures, both sides of each, against
+# tests/golden/beliefs.md. Write-up: tests/expected/conflicts_first-four.md. Rules: README.md.
+#
+# expected: the verdict a judge should return for the finding holding this quote against `target`.
+# accept:   other verdicts that also count as correct. The contradicting side of each conflict is a
+#           likely scope split, so scope_mismatch is accepted there (BUILD_PLAN P1 pass rule).
+# question_turn: set for short answers, same as in the fixture's label file.
+
+# C-001: is video the most valuable evidence on a claim? (B-001)
+- conflict: C-001
+  fixture: darius-kemp
+  target: B-001
+  expected: supports
+  quote: "Honestly video is the single best thing you can have on a liability file."
+- conflict: C-001
+  fixture: lena-okafor
+  target: B-001
+  expected: supports
+  quote: "Having the dashcam clip makes a huge difference, so we ask for it on basically every liability claim."
+- conflict: C-001
+  fixture: viktor-lang
+  target: B-001
+  expected: contradicts
+  accept: [scope_mismatch]
+  quote: "Honestly, in my line of work, video almost never makes a difference."
+- conflict: C-001
+  fixture: wade-pruitt
+  target: B-001
+  expected: contradicts
+  accept: [scope_mismatch]
+  quote: "On the yard and warehouse stuff, the workers' comp, the slip and fall stuff, hardly ever."
+
+# C-002: is footage often gone by the time the claim is reported? (B-002)
+- conflict: C-002
+  fixture: darius-kemp
+  target: B-002
+  expected: supports
+  quote: "I wish they'd hang onto it longer because a lot of these claims don't get reported to us until two or three months later."
+- conflict: C-002
+  fixture: darius-kemp
+  target: B-002
+  expected: supports
+  quote: "So I get an investigator out to the location inside those three days too, because a lot of these DVR systems loop over in a week or two."
+- conflict: C-002
+  fixture: lena-okafor
+  target: B-002
+  expected: contradicts
+  accept: [scope_mismatch]
+  quote: "and I can't remember a single insured telling me, sorry, that video is gone."
+
+# C-003: do adjusters have to scrub long footage to find the incident? (B-003)
+- conflict: C-003
+  fixture: darius-kemp
+  target: B-003
+  expected: supports
+  quote: "a lot of these stores will just send over the whole afternoon, like three hours of footage, and the fall is maybe twenty seconds of it."
+- conflict: C-003
+  fixture: viktor-lang
+  target: B-003
+  expected: contradicts
+  accept: [scope_mismatch]
+  quote: "The clips I actually receive are usually forty five seconds, maybe a minute."

@@ -1,0 +1,53 @@
+# Slack app manifest for Discovery Base (docs/self-hosting.md, "Slack app").
+#
+# Use it at https://api.slack.com/apps > Create New App > From a manifest, pick your workspace and
+# paste this file. Replace RECEIVER_URL with your receiver's host first:
+#   discovery-receiver-<project number>.<region>.run.app
+# (terraform output receiver_url prints it; it is deterministic, so you can work it out before the
+# receiver exists, see docs/self-hosting.md). If Slack refuses to create the app because the events
+# URL does not answer yet, delete the event_subscriptions block, create the app, and turn Event
+# Subscriptions on once the receiver is deployed.
+#
+# Change the names if you changed bot_name in config/domain.yml: people @mention the bot by its
+# display name.
+#
+# Bot scopes, from what discovery/slackio.py and discovery/slack_ask.py call:
+#   chat:write        chat.postMessage, chat.update, chat.delete, chat.postEphemeral, message metadata
+#   channels:read     conversations.list (resolve "#discovery-calls" to a channel id), public channels
+#   groups:read       the same for private channels
+#   channels:history  conversations.history (find a posted brief by its metadata), conversations.replies
+#   groups:history    the same for private channels
+#   app_mentions:read the app_mention event ("@Discovery Base <question>")
+# views.open, views.update and auth.test need no scope.
+
+display_information:
+  name: Discovery Base
+  description: Reads every customer discovery call, posts briefs and answers questions with verified quotes.
+  background_color: "#2c2d30"
+
+features:
+  bot_user:
+    display_name: Discovery Base
+    always_online: false
+
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - channels:history
+      - channels:read
+      - chat:write
+      - groups:history
+      - groups:read
+
+settings:
+  event_subscriptions:
+    request_url: https://RECEIVER_URL/slack/events
+    bot_events:
+      - app_mention
+  interactivity:
+    is_enabled: true
+    request_url: https://RECEIVER_URL/slack/interact
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

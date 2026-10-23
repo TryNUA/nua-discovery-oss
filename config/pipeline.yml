@@ -1,0 +1,53 @@
+# Model roles. Specs are "<provider>:<model id>"; providers are anthropic, openai and gemini.
+# The first extractor is primary: its who-fields win and it is the fallback when the other is down.
+#
+# Default: Gemini only, so one API key runs everything. Two different Gemini models extract and a
+# third arbitrates, so the cross-check still compares two independent readers. With keys for more
+# than one provider, independent providers catch more of each other's misses; see
+# docs/self-hosting.md "Choosing models" for the cross-provider setup and `discovery bakeoff`.
+extractors:
+  - gemini:gemini-3.1-pro-preview
+  - gemini:gemini-3.8-flash
+arbiter: gemini:gemini-3.7-flash
+ask_map: gemini:gemini-3.1-flash-lite
+ask_reduce: gemini:gemini-3.1-pro-preview
+rollup: gemini:gemini-3.1-pro-preview
+
+# Bump by hand when discovery/prompts/extract.py, consolidate.py, verdict.py, arbiter.py or any model id changes.
+prompt_version: v1
+
+# Go-live timestamp with offset, e.g. 2026-11-02T09:00:00-08:00. Recorder items from before it are ignored
+# (backfill older calls by dropping their transcripts into transcripts/). Unset: recorder webhooks are ignored.
+ingest_cutoff: null
+reprocess_stale: false
+timezone: America/Los_Angeles
+# Your team's email domains: a call where every attendee is on one of these is internal and gets no digest.
+internal_email_domains:
+  - acme.dev
+cost_cap_usd_per_task: 5.0
+
+channels:
+  calls: "#discovery-calls"
+  ops: "#discovery-ops"
+  test: "#discovery-test"
+
+thresholds:
+  under_pressure_calls: 2
+  under_pressure_seats: 2
+  add_calls: 3
+  add_seats: 2
+  split_scope_mismatch: 3
+  retire_calls: 3
+  retire_seats: 3
+  drop_watching_weeks: 6
+  scarce_seat_max_calls: 2
+  backfill_push_min: 6
+  dup_window_minutes: 10
+  dup_delay_minutes: 15
+  prep_window_days: 7
+  reprocess_stale_limit: 40
+  short_answer_words: 8
+  max_beliefs: 40
+  single_call_findings: 5
+  backcheck_delay_seconds: 300
+  brief_repost_hours: 48

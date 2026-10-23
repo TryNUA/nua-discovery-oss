@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+.pytest_cache/
+# Terraform (infra/terraform): the provider cache, local state and inputs stay local; the lock file
+# (.terraform.lock.hcl) is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.tfplan

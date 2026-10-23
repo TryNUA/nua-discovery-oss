@@ -1,0 +1,213 @@
+# Hand labels for tests/fixtures/darius-kemp.md (Circleback copy, named speakers). See README.md.
+# Every quote is copied exactly from a transcript turn, never from the #### Overview notes.
+# "Participant 2" is Circleback's label for part of Darius's audio; quotes keep the label on their turn.
+fixture: darius-kemp
+speaker_labels: named
+
+who:
+  contact: Darius Kemp
+  firm: null
+  seat: claims adjuster (staff)
+  institution_type: commercial carrier
+  role_in_thesis: carrier
+
+summary:
+  - "Slip and fall is the biggest injury bucket on his small business desk, and the first three days carry the file: statements, an investigator for footage, sweep logs, the policy."
+  - "Video is the best evidence on a liability file, but on small business claims it is missing or junk most of the time, and it is often recorded over before a late claim arrives."
+  - "Stores send whole afternoons of footage with no marker for the fall; he wants a tool that finds the minute."
+  - "His day-one gaps are a state and county deadline lookup, prewritten statement questions and an investigation checklist."
+  - "His carrier bars outside AI tools, and commercial lines get fewer platform modules than personal lines."
+
+findings:
+  - text: "Slip and fall is the largest injury claim bucket on his small business accounts."
+    quotes:
+      - quote: "slip and fall is easily the biggest bucket on my desk when it comes to injury claims on these small business accounts"
+        speaker: Darius Kemp
+    scope: {line: general liability, party: insured, segment: small commercial, seat: claims adjuster (staff)}
+
+  - text: "The first three days of an unrepresented slip and fall are critical, so he sends an investigator for camera footage before the recorder loops over."
+    quotes:
+      - quote: "With no lawyer on it, those first three days are everything."
+        speaker: Darius Kemp
+      - quote: "So I get an investigator out to the location inside those three days too, because a lot of these DVR systems loop over in a week or two."
+        speaker: Darius Kemp
+    scope: {line: general liability, party: insured, segment: small commercial, seat: claims adjuster (staff)}
+
+  - text: "On a severe injury he alerts the account underwriter and asks for the insured's prior loss runs."
+    quotes:
+      - quote: "If it looks like a big one, say a broken hip or a head injury, I'll ping our underwriter on the account so they can see it and I'll ask them for the prior loss runs."
+        speaker: Darius Kemp
+    scope: {line: general liability, party: carrier, seat: claims adjuster (staff)}
+
+  - text: "A lawyer makes a claim cost more from the start: an unrepresented claim closes in about four months, a represented one takes eighteen months to three years."
+    quotes:
+      - quote: "Unrepresented, I'm trying to wrap it up in about four months. Once a lawyer signs on you can figure eighteen months at the low end and sometimes three years."
+        speaker: Darius Kemp
+      - quote: "The minute a lawyer is retained, the claim costs more, period."
+        speaker: Darius Kemp
+    scope: {line: general liability, seat: claims adjuster (staff)}
+
+  - text: "He wants a lookup that returns a state and county's deadlines and notice rules, because a missed deadline becomes a bad faith argument and the internal sources are so scattered that a web search is faster."
+    quotes:
+      - quote: "what I really want is a lookup where I type in the state and the county and it spits out every deadline and notice rule for that spot."
+        speaker: Darius Kemp
+      - quote: "If you blow one of those deadlines, that's a bad faith argument waiting for you when the suit gets filed."
+        speaker: Darius Kemp
+      - quote: "Half the time it's faster for me to just search the web."
+        speaker: Darius Kemp
+    scope: {party: carrier, seat: claims adjuster (staff)}
+
+  - text: "Statement questions written for the specific loss would spare him improvising them on the call."
+    quotes:
+      - quote: "Something like that would hand me the right questions for that exact loss so I'm not making them up while the claimant is on the phone."
+        speaker: Darius Kemp
+    scope: {line: general liability, seat: claims adjuster (staff)}
+
+  - text: "He wants an investigation checklist that lists every document and person still needed for a loss type."
+    quotes:
+      - quote: "I'd love a checklist that builds itself, where you put in the loss type and it tells you every document and every person you still need."
+        speaker: Darius Kemp
+    scope: {seat: claims adjuster (staff)}
+
+  - text: "His carrier bars outside AI tools on claim work because compliance fears claimant data leaving the company."
+    quotes:
+      - quote: "But anything outside the company is off limits for us, because compliance is terrified of claimant data leaving the building."
+        speaker: Darius Kemp
+    scope: {party: carrier, seat: claims adjuster (staff)}
+
+  - text: "An AI agent that drafts the note after a lawyer negotiation would give him back an hour a day."
+    quotes:
+      - quote: "If a bot could listen in and draft that note and I just signed off on it, I'd get an hour of my day back easy."
+        speaker: Darius Kemp
+    scope: {party: carrier, seat: claims adjuster (staff)}
+
+  - text: "Carriers buy less claims software for commercial lines than for personal lines."
+    quotes:
+      - quote: "And on the commercial side the carriers buy a lot less of it than they do for personal auto and homeowners."
+        speaker: Darius Kemp
+    scope: {party: carrier, segment: small commercial, seat: claims adjuster (staff)}
+
+  - text: "AI agents break down on long chains of insurance steps because one early error carries through the rest."
+    quotes:
+      - quote: "Where they fall apart is a long chain of steps, because if step two is wrong then every step after it is wrong too."
+        speaker: Darius Kemp
+    scope: {party: vendor, seat: claims adjuster (staff)}
+
+  - text: "Guidewire has long been the leading claims platform."
+    quotes:
+      - quote: "because guide wire has been the big name in claims systems for as long as I've been working."
+        speaker: Darius Kemp
+    scope: {party: vendor, seat: claims adjuster (staff)}
+
+  - text: "Video is the best evidence on a liability file, and video the store pulls from its own system is the most trusted."
+    quotes:
+      - quote: "Honestly video is the single best thing you can have on a liability file."
+        speaker: Darius Kemp
+      - quote: "how much I trust it comes down to who handed it over, and if the store pulled it off their own system that's the best you'll get"
+        speaker: Participant 2
+    scope: {line: general liability, party: insured, seat: claims adjuster (staff)}
+
+  - text: "Claims often reach him two or three months after the fall, after the footage is recorded over, so he wants stores to keep it longer."
+    quotes:
+      - quote: "I wish they'd hang onto it longer because a lot of these claims don't get reported to us until two or three months later."
+        speaker: Darius Kemp
+    scope: {line: general liability, party: insured, segment: small commercial, seat: claims adjuster (staff)}
+
+  - text: "Far fewer than half of his files have usable video; on small shops the camera was not recording or the footage is junk about seven times in ten."
+    quotes:
+      - quote: "Nowhere close to that."
+        speaker: Participant 2
+        question_turn: 109
+      - quote: "On the small shops I'd say seven times out of ten the camera wasn't recording or the footage is junk."
+        speaker: Darius Kemp
+    scope: {line: general liability, party: insured, segment: small commercial, seat: claims adjuster (staff)}
+
+  - text: "Large chains give usable video about half to two thirds of the time."
+    quotes:
+      - quote: "The big chains are better, maybe half to two thirds of the time you get something you can use."
+        speaker: Darius Kemp
+    scope: {line: general liability, party: insured, segment: middle market, seat: claims adjuster (staff)}
+
+  - text: "Repeat claimants know where the cameras point and fall in the gaps."
+    quotes:
+      - quote: "the professional fallers know where every camera in that store is pointed and they go down right in the gap"
+        speaker: Darius Kemp
+    scope: {line: general liability, seat: claims adjuster (staff)}
+
+  - text: "Stores send hours of footage in which the fall takes seconds, so he wants a tool that gives the exact time it happens."
+    quotes:
+      - quote: "a lot of these stores will just send over the whole afternoon, like three hours of footage, and the fall is maybe twenty seconds of it."
+        speaker: Darius Kemp
+      - quote: "I'd love to drop the file in and have it tell me the fall happens at one hour twelve minutes and change"
+        speaker: Darius Kemp
+    scope: {line: general liability, party: insured, seat: claims adjuster (staff)}
+
+follow_ups:
+  - direction: we_owe
+    what: "Walk him through AI capabilities when questions come up"
+    who: Darius Kemp
+    quote: "So if anything comes up on the AI side, I'm happy to walk you through it."
+  - direction: they_offered
+    what: "Happy to help again with claims questions"
+    who: Darius Kemp
+    quote: "I'm happy to help out again anytime."
+
+ask_next:
+  - "Ask a claims manager how often footage is already recorded over when a late slip and fall is reported."
+  - "Ask how long a store's recorder keeps footage and who sets that."
+  - "Ask whether his carrier would pay per location for a tool that finds the fall in a long export."
+
+mentions:
+  people: []
+  firms: [Guidewire, Duck Creek, Benchline, Costco]
+
+# Expected verdicts against tests/golden/beliefs.md. `quotes` name quotes of the labeled findings above.
+belief_checks:
+  - target: B-004
+    verdict: contradicts
+    quotes:
+      - "But anything outside the company is off limits for us, because compliance is terrified of claimant data leaving the building."
+    note: "A staff adjuster at a carrier; B-004 came from an independent adjuster. Likely split."
+  - target: B-001
+    verdict: supports
+    quotes:
+      - "Honestly video is the single best thing you can have on a liability file."
+      - "how much I trust it comes down to who handed it over, and if the store pulled it off their own system that's the best you'll get"
+  - target: B-002
+    verdict: supports
+    quotes:
+      - "So I get an investigator out to the location inside those three days too, because a lot of these DVR systems loop over in a week or two."
+      - "I wish they'd hang onto it longer because a lot of these claims don't get reported to us until two or three months later."
+  - target: B-003
+    verdict: supports
+    quotes:
+      - "a lot of these stores will just send over the whole afternoon, like three hours of footage, and the fall is maybe twenty seconds of it."
+      - "I'd love to drop the file in and have it tell me the fall happens at one hour twelve minutes and change"
+  - target: W-001
+    verdict: supports
+    quotes:
+      - "And on the commercial side the carriers buy a lot less of it than they do for personal auto and homeowners."
+
+# Expected coverage of tests/golden/prep_darius-kemp.md, in the prep file's order.
+question_coverage:
+  - question: "What happens in the first few days of a slip and fall claim?"
+    status: answered
+    quotes:
+      - "With no lawyer on it, those first three days are everything."
+      - "So I get an investigator out to the location inside those three days too, because a lot of these DVR systems loop over in a week or two."
+  - question: "How often do your files have usable video at all?"
+    status: answered
+    quotes:
+      - "Nowhere close to that."
+      - "On the small shops I'd say seven times out of ten the camera wasn't recording or the footage is junk."
+  - question: "When you do have video, how does it change the claim? (B-001)"
+    status: answered
+    quotes:
+      - "Honestly video is the single best thing you can have on a liability file."
+  - question: "Do carriers buy their claims platform or build their own in house?"
+    status: dodged
+    quotes:
+      - "because guide wire has been the big name in claims systems for as long as I've been working."
+  - question: "What would a carrier pay per location for a footage preservation tool?"
+    status: never_asked
+    quotes: []

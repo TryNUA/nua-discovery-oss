@@ -1,0 +1,23 @@
+# ASR alias map. Used to widen searches and fill structured fields, never to rewrite a quote.
+# Add an alias only with evidence: name the transcript it was heard in and quote the garbled span.
+Guidewire:
+  aliases:
+    - {
+        alias: guide wire,
+        confidence: high,
+        source: 'darius-kemp fixture: "because guide wire has been the big name in claims systems"',
+      }
+Corrigan Hale:
+  aliases:
+    - {
+        alias: Carrigan Hail,
+        confidence: high,
+        source: 'viktor-lang fixture: "because I work for a big firm, it''s called, uh, Carrigan Hail"',
+      }
+CompScience:
+  aliases:
+    - {
+        alias: comp science,
+        confidence: medium,
+        source: 'wade-pruitt fixture: "We also talked to comp science about a camera pilot at one yard"',
+      }

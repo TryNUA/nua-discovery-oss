@@ -1,0 +1,159 @@
+# Hand labels for tests/fixtures/wade-pruitt.md (Granola export, Me/Them labels). See README.md.
+# "Me" is Alex's microphone, "Them" is Wade. Every quote is copied exactly from the text after the
+# Transcript: line, never from the notes above it.
+fixture: wade-pruitt
+speaker_labels: me_them
+
+who:
+  contact: Wade Pruitt
+  firm: null
+  seat: risk manager (insured)
+  institution_type: building materials distributor
+  role_in_thesis: insured
+
+summary:
+  - "Workers' comp is his highest claim volume; commercial auto, at 3 to 4 claims a week, carries the dollars."
+  - "Lytx cameras in every truck feed auto claims, but the employer rarely pulls footage on yard, warehouse or workers' comp claims."
+  - "Warehouse cameras fit safety and loss control; fleet footage fits claims handling, sold to carriers."
+  - "Near misses are not tracked; the safety team visits each yard monthly and site leads report in."
+  - "Clear-fault auto claims are settled fast before a lawyer turns a small claim into a large one."
+
+findings:
+  - text: "Workers' comp is the distributor's highest claim volume, while commercial auto, at 3 to 4 claims a week, carries the dollars, with severity rising sharply when a passenger car is involved."
+    quotes:
+      - quote: "But workers' comp is by far where most of our claims come from, just on volume."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "Commercial auto, we're running maybe 3 or 4 a week, so call it 150 to 200 a year. That's where the real dollars are."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "once one of our flatbeds tangles with a passenger car and somebody gets hurt, the severity on that claim goes through the roof."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: "workers' comp, commercial auto", party: insured, seat: risk manager (insured)}
+
+  - text: "On yard, warehouse, workers' comp and slip and fall claims footage is hardly ever used, and pulling it on every file is not worth it to the employer."
+    quotes:
+      - quote: "On the yard and warehouse stuff, the workers' comp, the slip and fall stuff, hardly ever."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "It's not that the video couldn't help, it's more that pulling it on every single file just isn't worth it for us."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: "workers' comp, general liability", party: insured, seat: risk manager (insured)}
+
+  - text: "Lytx cameras in every truck push crash clips automatically, and the footage is used heavily and kept for auto claims."
+    quotes:
+      - quote: "Every truck has a Lytx camera, and we lean on that footage a lot and keep all of it."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "If there's an actual crash, it pushes the clip to us on its own."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: risk manager (insured)}
+
+  - text: "Carriers and TPAs investigate workers' comp claims more than the employer's risk department does."
+    quotes:
+      - quote: "The carrier and the TPA probably dig into those more, but our risk department isn't doing that kind of investigation."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: "workers' comp", party: "carrier, TPA", seat: risk manager (insured)}
+
+  - text: "Some programs carry self-insured retentions and others deductibles."
+    quotes:
+      - quote: "On some of them we carry a self-insured retention, and on others it's just a deductible."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {party: insured, segment: middle market, seat: risk manager (insured)}
+
+  - text: "Warehouse cameras are most valuable for safety and loss control: seeing hazards before anyone is hurt is what the safety team wants."
+    quotes:
+      - quote: "If we could see that kind of thing before anybody gets hurt, that's exactly what the safety guys want."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "for a warehouse camera setup, the real value is on the safety and loss control side"
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: "workers' comp", party: insured, seat: risk manager (insured)}
+
+  - text: "Risk is tracked today by people walking the yards, site safety leads reporting in and monthly visits; near misses are not tracked."
+    quotes:
+      - quote: "mostly it's people walking the yards and our site safety leads keeping us in the loop here at headquarters."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "No, nobody tracks those formally."
+        speaker: Wade Pruitt
+        question_turn: 99
+        attribution: inferred
+      - quote: "somebody from the safety team gets out to each yard about once a month"
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {party: insured, seat: risk manager (insured)}
+
+  - text: "The cameras were bought for claims and safety visibility, not for premium credit."
+    quotes:
+      - quote: "It was really about the claims side. I don't think we get any kind of premium credit for it"
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: risk manager (insured)}
+
+  - text: "Drivers sue a commercial fleet even when they caused the crash, and once a lawyer is hired an $8,000 soft tissue claim can become $250,000."
+    quotes:
+      - quote: "People see our name on the door of a flatbed and they'll sue even when they rear-ended us."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "they hire a lawyer and an $8,000 soft tissue claim turns into a $250,000 claim."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: risk manager (insured)}
+
+  - text: "Footage for handling claims is worth more to carriers, and which use is worth more depends on where a company's business sits."
+    quotes:
+      - quote: "When it's about actually handling claims, that's where it's worth more to a carrier."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "Both have value, it just depends on where most of a given company's business sits."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {party: carrier, seat: risk manager (insured)}
+
+  - text: "A carrier could offer a premium discount to insureds that install the cameras."
+    quotes:
+      - quote: "you go to the carrier and they say if you put these in, we'll take a percentage off your premium every month."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {party: carrier, seat: risk manager (insured)}
+
+  - text: "At carriers the buyers are claims directors, VPs, AVPs and regional VPs; whether a claims manager can buy depends on company size and how authority is set up."
+    quotes:
+      - quote: "at a carrier you'd want claims directors, VPs, AVPs, regional VPs, people at that level."
+        speaker: Wade Pruitt
+        attribution: inferred
+      - quote: "some places they do, it really comes down to how big the company is and how they've set up authority."
+        speaker: Wade Pruitt
+        attribution: inferred
+    scope: {party: carrier, seat: risk manager (insured)}
+
+follow_ups:
+  - direction: we_owe
+    what: "Answer his AI and technical questions"
+    who: Wade Pruitt
+    quote: "I'm glad to answer anything on that front."
+
+ask_next:
+  - "Ask a workers' comp TPA whether footage would change how they investigate yard injuries."
+  - "Ask whether Lytx footage has ever been missing or recorded over on an auto claim."
+  - "Ask what a carrier would credit for warehouse cameras used for safety."
+
+mentions:
+  people: []
+  firms: [Lytx, Keystone Casualty, Ridgeline Supply, CompScience]
+
+# Expected verdicts against tests/golden/beliefs.md. `quotes` name quotes of the labeled findings above.
+belief_checks:
+  - target: B-001
+    verdict: contradicts
+    quotes:
+      - "On the yard and warehouse stuff, the workers' comp, the slip and fall stuff, hardly ever."
+      - "It's not that the video couldn't help, it's more that pulling it on every single file just isn't worth it for us."
+    note: "An employer on its own workers' comp claims; B-001 is about liability claims at a carrier. Likely split."

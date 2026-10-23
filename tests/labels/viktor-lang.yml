@@ -1,0 +1,192 @@
+# Hand labels for tests/fixtures/viktor-lang.md (Granola export, one "Me" stream). See README.md.
+# The whole call is a single turn labeled "Me", so every speaker is inferred from context. Every quote
+# is copied exactly from the text after the Transcript: line, never from the notes above it.
+# The transcript gives only his first name; "Lang" comes from the source file name.
+fixture: viktor-lang
+speaker_labels: single_stream
+
+who:
+  contact: Viktor Lang
+  firm: Corrigan Hale
+  seat: independent adjuster / TPA
+  institution_type: independent adjusting firm
+  role_in_thesis: intermediary
+
+summary:
+  - "An independent adjuster on commercial property claims (water, wind, fire, burglary) says video seldom matters to his work."
+  - "He sees the damage on site and can date a leak from the staining; burglary footage confirms a loss he does not dispute."
+  - "Clips are short but arrive as clunky files through shared drives and corporate IT, and carriers still want them in the file."
+  - "Inspection is part of what the carrier owes, and an inspector's expertise catches what a camera misses."
+  - "His real pain is long templated reports; he uses Copilot and ChatGPT for policy details and they sometimes make them up."
+
+findings:
+  - text: "Video almost never matters in his property adjusting work: footage is mostly a waste of his time and of very limited use."
+    quotes:
+      - quote: "Honestly, in my line of work, video almost never makes a difference."
+        speaker: Viktor Lang
+        attribution: inferred
+      - quote: "For me it's mostly a waste of time, to be honest."
+        speaker: Viktor Lang
+        attribution: inferred
+      - quote: "For the adjusting part, like I told you, it's of very limited use."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: carrier, seat: independent adjuster / TPA}
+
+  - text: "Burglary is the only claim type where video comes up."
+    quotes:
+      - quote: "Burglary is really the only kind of claim where it shows up."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, seat: independent adjuster / TPA}
+
+  - text: "A clip of a leak adds nothing, because on site he sees the water damage and can date the leak from the staining."
+    quotes:
+      - quote: "So that clip doesn't help me, because when I walk in there I can already see the water came through the ceiling."
+        speaker: Viktor Lang
+        attribution: inferred
+      - quote: "From the staining and how far the moisture has wicked up the drywall, I can date that leak within a few weeks."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, seat: independent adjuster / TPA}
+
+  - text: "Video files are enormous and clunky, and he has no time to watch them."
+    quotes:
+      - quote: "The files are enormous and clunky, and I don't have the hours to sit and watch them."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, seat: independent adjuster / TPA}
+
+  - text: "Getting footage from an insured's shared drive means asking for access and waiting."
+    quotes:
+      - quote: "Half the time I'm not on the share they set up, so I have to ask for access and wait."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: insured, seat: independent adjuster / TPA}
+
+  - text: "Carriers still want the footage in the claim file."
+    quotes:
+      - quote: "The carrier generally wants the footage in the file anyway."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: carrier, seat: independent adjuster / TPA}
+
+  - text: "The clips he receives run a minute or less, not hours."
+    quotes:
+      - quote: "The clips I actually receive are usually forty five seconds, maybe a minute."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: insured, seat: independent adjuster / TPA}
+
+  - text: "Video cannot replace an on-site inspection on a large commercial claim: an experienced inspector catches risks no camera covers, and that expertise would be lost."
+    quotes:
+      - quote: "No, video is not enough, it can't be enough."
+        speaker: Viktor Lang
+        attribution: inferred
+      - quote: "And there's the expertise. You lose that if all you've got is a video."
+        speaker: Viktor Lang
+        attribution: inferred
+      - quote: "So unless somebody who knows what to look for is standing there, nobody would catch it"
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: carrier, segment: middle market, seat: independent adjuster / TPA}
+
+  - text: "Water is the most common commercial property claim in his area, then wind from winter storms."
+    quotes:
+      - quote: "Here, water is the number one claim, then wind from the winter storms."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, seat: independent adjuster / TPA}
+
+  - text: "On trip and fall claims, being on site matters even more."
+    quotes:
+      - quote: "And on those, being there in person matters even more."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: general liability, seat: independent adjuster / TPA}
+
+  - text: "Footage that suggests an inside job changes nothing for the adjuster, since acting on it is police work."
+    quotes:
+      - quote: "It looks fishy, sure, but we don't act on that, we're not the police."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, seat: independent adjuster / TPA}
+
+  - text: "Carrier examiners are typically assigned about ten days after the loss, and a water loss grows meanwhile because nobody started drying early."
+    quotes:
+      - quote: "Ten days is pretty normal."
+        speaker: Viktor Lang
+        question_turn: 1
+        attribution: inferred
+      - quote: "In the meantime the loss gets bigger, because nobody started drying it out early."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: carrier, seat: independent adjuster / TPA}
+
+  - text: "Adjusters must send a first report within fifteen days of inspection; a 10-page first report is billed and takes about 5 hours."
+    quotes:
+      - quote: "By law, after the inspection, you get fifteen days to send it in."
+        speaker: Viktor Lang
+        attribution: inferred
+      - quote: "So that one went out at five hours billed, and it really did take me about that long."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {line: commercial property, party: carrier, seat: independent adjuster / TPA}
+
+  - text: "He believes AI will take most people out of claims handling."
+    quotes:
+      - quote: "I'm convinced AI is going to squeeze most of the people out of this process"
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {party: carrier, seat: independent adjuster / TPA}
+
+  - text: "He uses Copilot or ChatGPT to pull policy details, and they sometimes make up details that are not in the policy."
+    quotes:
+      - quote: "I'll have Copilot or ChatGPT pull it out of the policy for me, and every so often they make something up that just isn't in there."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {party: vendor, seat: independent adjuster / TPA}
+
+  - text: "Footage review could be sold as a separate service that returns only the seconds that matter."
+    quotes:
+      - quote: "You analyze it, and you just send back the twenty seconds that actually matter."
+        speaker: Viktor Lang
+        attribution: inferred
+    scope: {party: vendor, seat: independent adjuster / TPA}
+
+follow_ups:
+  - direction: we_owe
+    what: "Meet in person to see his SiteLog inspection app"
+    who: Viktor Lang
+    quote: "Okay, I'm in San Francisco, so it's not too far, we could definitely drive up one day."
+  - direction: they_offered
+    what: "Share his first-report template if it is not confidential"
+    who: Viktor Lang
+    quote: "I could share my template"
+
+ask_next:
+  - "Ask a carrier examiner what they do with the video an independent adjuster sends in."
+  - "Ask which claim types, if any, make footage worth the transfer hassle for him."
+  - "Ask what the report template needs from the policy, field by field."
+
+mentions:
+  people: []
+  firms: [Corrigan Hale, Slow Rise, SiteLog, Copilot, ChatGPT, Gemini, Claude]
+
+# Expected verdicts against tests/golden/beliefs.md. `quotes` name quotes of the labeled findings above.
+belief_checks:
+  - target: B-001
+    verdict: contradicts
+    quotes:
+      - "Honestly, in my line of work, video almost never makes a difference."
+      - "For me it's mostly a waste of time, to be honest."
+    note: "Commercial property claims at an independent adjuster; B-001 is about liability claims. Likely split."
+  - target: B-003
+    verdict: contradicts
+    quotes:
+      - "The clips I actually receive are usually forty five seconds, maybe a minute."
+    note: "Short property clips; B-003 came from long store recordings on liability claims. Likely split."
+  - target: B-004
+    verdict: supports
+    quotes:
+      - "I'll have Copilot or ChatGPT pull it out of the policy for me, and every so often they make something up that just isn't in there."

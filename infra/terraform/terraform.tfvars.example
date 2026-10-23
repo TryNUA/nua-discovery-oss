@@ -1,0 +1,33 @@
+# Copy to terraform.tfvars (gitignored) and fill in. No secret values belong here: secrets are added
+# with gcloud (infra/README.md), so they never reach this file or Terraform state.
+
+project_id                 = "my-discovery-project"
+region                     = "us-west1"
+repo_slug                  = "owner/discovery-base"
+repo_branch                = "main"
+github_app_id              = "123456"
+github_app_installation_id = "78901234"
+github_app_slug            = "discovery-base"
+
+# Stage 1: leave empty. Stage 2: the image infra/deploy.sh --build-only printed.
+image = ""
+# image = "us-west1-docker.pkg.dev/my-discovery-project/discovery/discovery:20261004-120000-abc1234"
+
+# Scheduler jobs (sweep, sweep-granola, rollup). Leave false until go-live is done (infra/README.md).
+schedules_on = false
+
+# Budget alert emails to billing admins (gcloud billing projects describe <project> for the id). Empty: none.
+billing_account    = ""
+monthly_budget_usd = 25
+
+# Staging: every Slack post goes to #discovery-test.
+slack_test_mode = false
+
+# Circleback, per person who records on it (keys from config/people.yml), e.g. ["alex", "sam"].
+# Empty: Granola only. See docs/self-hosting.md, step 8.
+circleback_people = []
+
+# MCP server. Off for now.
+deploy_mcp          = false
+mcp_auth            = "github" # github | google | none (none keeps discovery-mcp private)
+mcp_oauth_client_id = ""

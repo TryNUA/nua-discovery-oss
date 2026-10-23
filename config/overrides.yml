@@ -1,0 +1,4 @@
+# Hand corrections to call metadata, keyed by call_id. The pipeline rewrites the digest from them.
+# Example:
+# 2026-09-24_jane-doe: {firm: Example Mutual, seat: claims adjuster (staff), date: 2026-09-24}
+{}

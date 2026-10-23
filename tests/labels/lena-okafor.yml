@@ -1,0 +1,189 @@
+# Hand labels for tests/fixtures/lena-okafor.md (Granola export, Me/Them labels). See README.md.
+# "Me" is Alex's microphone, "Them" is Lena. Every quote is copied exactly from the text after the
+# Transcript: line, never from the notes above it.
+fixture: lena-okafor
+speaker_labels: me_them
+
+who:
+  contact: Lena Okafor
+  firm: null
+  seat: claims manager / supervisor
+  institution_type: trucking carrier
+  role_in_thesis: carrier
+
+summary:
+  - "Trucking claims have more footage than other lines because nearly every insured fleet runs dashcams, but claims has to wait for the insured to send each clip."
+  - "She has not seen footage lost to recording over in trucking; fleets keep video for their own safety programs."
+  - "Dashcam video speeds liability decisions, except on rear impacts the forward camera cannot see."
+  - "Payment delays come mostly from open coverage questions and waiting on busy fleet owners for documents."
+  - "Claims uses no AI to check a policy against evidence; ideas go to her manager and up the chain."
+
+findings:
+  - text: "Nearly every fleet her carrier insures requires a dashcam in the cab."
+    quotes:
+      - quote: "From what I've seen, nearly every fleet we insure makes their drivers run a dashcam in the cab."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: claims manager / supervisor}
+
+  - text: "Some carriers discount the premium for fleets that run cameras, though she does not know of it at her own."
+    quotes:
+      - quote: "So in the industry overall, I've heard some carriers will knock something off the premium if the fleet runs cameras."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: carrier, seat: claims manager / supervisor}
+
+  - text: "Claims cannot reach an insured's camera system directly, so how fast footage arrives depends on the insured sending it."
+    quotes:
+      - quote: "That really depends on the insured, because we're waiting on them to pull the clip and email it over."
+        speaker: Lena Okafor
+        attribution: inferred
+      - quote: "No, we don't."
+        speaker: Lena Okafor
+        question_turn: 37
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: claims manager / supervisor}
+
+  - text: "She rarely if ever sees dashcam footage lost before a claim, and no insured has told her the video was gone, though she has not tracked it."
+    quotes:
+      - quote: "Honestly I can't think of many times that's happened, but I've never really tracked it either."
+        speaker: Lena Okafor
+        attribution: inferred
+      - quote: "and I can't remember a single insured telling me, sorry, that video is gone."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: claims manager / supervisor}
+
+  - text: "Fleets keep their own dashcam video for their safety programs."
+    quotes:
+      - quote: "because most fleets hang on to their own dashcam video for their safety program anyway."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: claims manager / supervisor}
+
+  - text: "A dashcam clip makes a large difference and usually speeds the liability decision, so her team asks for it on nearly every liability claim."
+    quotes:
+      - quote: "Having the dashcam clip makes a huge difference, so we ask for it on basically every liability claim."
+        speaker: Lena Okafor
+        attribution: inferred
+      - quote: "it usually gets us to a liability decision way quicker."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: carrier, seat: claims manager / supervisor}
+
+  - text: "Forward-facing dashcams still leave rear impacts hard to decide."
+    quotes:
+      - quote: "where it still gets tricky is when the truck gets hit from behind, since the camera only looks out the windshield"
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, seat: claims manager / supervisor}
+
+  - text: "Telematics is offered as a product but claims cannot see the data."
+    quotes:
+      - quote: "The telematics side exists, but on the claims side I can't pull any of that data up."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: carrier, seat: claims manager / supervisor}
+
+  - text: "She asks for outside camera footage only when the file lacks enough to decide."
+    quotes:
+      - quote: "We usually only go asking for outside camera footage when what we have on the file isn't enough to decide"
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, seat: claims manager / supervisor}
+
+  - text: "Without footage, liability rests on statements, scene photos, phone video and the police report, and with nothing else it is decided as one driver's word against the other's."
+    quotes:
+      - quote: "That might be the drivers' statements, scene photos, a video somebody took on their phone, the police report"
+        speaker: Lena Okafor
+        attribution: inferred
+      - quote: "And if it truly comes down to one driver's word against the other's, then that's what we decide it on."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, seat: claims manager / supervisor}
+
+  - text: "Police reports can take a month or more and can reopen a liability decision."
+    quotes:
+      - quote: "the police report can take a month or more to come in"
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, seat: claims manager / supervisor}
+
+  - text: "Insureds are told at first notice that they must keep the damage from getting worse."
+    quotes:
+      - quote: "we always tell the insured right at first notice that it's on them to keep the damage from getting worse"
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: insured, seat: claims manager / supervisor}
+
+  - text: "Most payment delays come from an open coverage question or from waiting on the insured for documents."
+    quotes:
+      - quote: "most of the delays I see come from a coverage question we're still working through on the file, like whether this truck or this load is even on the policy."
+        speaker: Lena Okafor
+        attribution: inferred
+      - quote: "we also need the insured to work with us and send what we ask for"
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {line: commercial auto, party: carrier, seat: claims manager / supervisor}
+
+  - text: "Her claims team uses no AI to check a policy against the evidence."
+    quotes:
+      - quote: "No, not that I know of."
+        speaker: Lena Okafor
+        question_turn: 123
+        attribution: inferred
+    scope: {party: carrier, seat: claims manager / supervisor}
+
+  - text: "Her Pitch Day idea was a tool that drafts the customer follow-up email after each adjuster call."
+    quotes:
+      - quote: "the idea was a tool that writes up the follow-up email to the customer after every call so nothing we promised gets dropped"
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {party: carrier, seat: claims manager / supervisor}
+
+  - text: "A process idea reaches leadership only through her manager and the chain above."
+    quotes:
+      - quote: "Normally it has to go through my manager first and then up the chain from there."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {party: carrier, seat: claims manager / supervisor}
+
+  - text: "A supervisor sees less day-to-day claim detail than the adjusters do."
+    quotes:
+      - quote: "Being a supervisor, I see plenty, but the adjusters are the ones living in the files every day, so they'll see way more of the detail than I do."
+        speaker: Lena Okafor
+        attribution: inferred
+    scope: {party: carrier, seat: claims manager / supervisor}
+
+follow_ups:
+  - direction: we_owe
+    what: "Answer her tech and AI questions"
+    who: Lena Okafor
+    quote: "so if you ever have questions about tech or AI, I'm glad to help, now or anytime later."
+  - direction: they_offered
+    what: "Introduce an adjuster willing to talk, after checking with them first"
+    who: Lena Okafor
+    quote: "I can ask around and see if one of my adjusters would be up for talking to you."
+
+ask_next:
+  - "Ask a trucking adjuster how often dashcam footage arrives late or never arrives."
+  - "Ask who at her carrier owns the telematics data and whether claims could get access."
+  - "Ask a general liability claims manager whether recorded-over footage is a real loss there."
+
+mentions:
+  people: []
+  firms: [Brightway Collision]
+
+# Expected verdicts against tests/golden/beliefs.md. `quotes` name quotes of the labeled findings above.
+belief_checks:
+  - target: B-002
+    verdict: contradicts
+    quotes:
+      - "and I can't remember a single insured telling me, sorry, that video is gone."
+      - "because most fleets hang on to their own dashcam video for their safety program anyway."
+    note: "Trucking fleets keep dashcam video; B-002 is about small business CCTV. Likely split."
+  - target: B-001
+    verdict: supports
+    quotes:
+      - "Having the dashcam clip makes a huge difference, so we ask for it on basically every liability claim."
+      - "it usually gets us to a liability decision way quicker."

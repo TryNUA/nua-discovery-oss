@@ -1,0 +1,11 @@
+# What `gcloud builds submit` (infra/deploy.sh) uploads: only what service/Dockerfile copies.
+# gcloud reads this file instead of .gitignore. Everything is left out, then the image's inputs are
+# let back in. The corpus (transcripts/, digests/, prep/, requests/), tests/, docs/, infra/, .venv/,
+# .env, .git/ and .claude/ never leave the machine.
+/*
+!/pyproject.toml
+!/uv.lock
+!/discovery/
+!/service/
+__pycache__/
+*.pyc
