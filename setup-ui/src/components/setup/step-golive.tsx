@@ -1,18 +1,17 @@
 "use client";
 
-import { useState } from "react";
-
-import { api, useApi, type EnvStatus, type GoLive } from "@/lib/api";
+import { api, type EnvStatus, type GoLive } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { List, ListItem } from "@/components/ui/list";
-import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
-import { CodeBlock, Note, Section, SecretField, useSave } from "@/components/setup/common";
+import { CodeBlock, LinkButton, Note, Section, SecretField } from "@/components/setup/common";
+import { useDraft, useFlush, useProblems, useQuietSet, useSaver, type FieldProblem } from "@/components/setup/store";
 import { StepFrame, type StepNav } from "@/components/setup/frame";
 import { personVar } from "@/components/setup/step-recorder";
+import { circlebackSecret, granolaWebhook, GuideSteps } from "@/components/setup/howto";
+import { CollapsibleSection } from "@/components/ui/collapsible";
 
 /** "GMT-08:00" style offset of `zone` at instant `ms`, as minutes east of UTC. */
 function offsetMinutes(zone: string, ms: number): number {
@@ -61,41 +60,45 @@ function toLocalInput(cutoff: string | null): string {
   return `${m[1]}T${m[2] || "00:00"}`;
 }
 
-function Numbered({ items }: { items: React.ReactNode[] }) {
-  return (
-    <List as="ol" gap="md">
-      {items.map((item, i) => (
-        <ListItem key={`n-${i}`} align="start" gap="md">
-          <Text size="sm" mono color="faint" className="w-5 flex-none text-right">
-            {i + 1}.
-          </Text>
-          <div className="flex flex-col gap-2 min-w-0 flex-1">{item}</div>
-        </ListItem>
-      ))}
-    </List>
-  );
-}
-
-function Recorders({ live, env, onSaved }: { live: GoLive; env: EnvStatus; onSaved: () => void }) {
-  const [values, setValues] = useState<Record<string, string>>({});
-  const save = useSave();
+function Recorders({
+  live,
+  env,
+  values,
+  setValues,
+  flush,
+  error,
+}: {
+  live: GoLive;
+  env: EnvStatus;
+  values: Record<string, string>;
+  setValues: (v: Record<string, string>) => void;
+  flush: () => void;
+  error: (field: string) => string | undefined;
+}) {
   const granola = live.recorder === "granola" || live.recorder === "both";
   const circleback = live.recorder === "circleback" || live.recorder === "both";
-  function submit() {
-    save
-      .run(
-        () => api<EnvStatus & { written: string[] }>("env", "PUT", { values }),
-        (r) => (r.written.length ? `Wrote ${r.written.join(", ")} to .env (values not shown)` : "Nothing new to write."),
-      )
-      .then((r) => {
-        if (r) {
-          setValues({});
-          onSaved();
-        }
-      });
-  }
   if (!live.receiver_url) {
-    return <Note title="No receiver URL yet" description="Deploy first (step 9). The webhook URLs show up here then." variant="warn" />;
+    return (
+      <div className="flex flex-col gap-2">
+        <Note
+          title="Waiting for the receiver URL"
+          description={
+            live.cloud === "aws"
+              ? "On AWS it appears after the first deploy (step 6). The webhook steps show up here then."
+              : "On Google Cloud it comes from your project id and region in step 3 (with gcloud logged in). The webhook steps show up here then."
+          }
+          variant="warn"
+        />
+        <div>
+          <LinkButton href="#cloud" external={false} variant="outline">
+            Go to step 3
+          </LinkButton>
+        </div>
+        <Text size="xs" color="faint">
+          The go-live time and schedules below work without it.
+        </Text>
+      </div>
+    );
   }
   return (
     <div className="flex flex-col gap-6">
@@ -104,24 +107,26 @@ function Recorders({ live, env, onSaved }: { live: GoLive; env: EnvStatus; onSav
           <Text size="sm" weight="semibold">
             Granola
           </Text>
-          <Numbered
-            items={[
-              <Text key="a" size="sm" color="muted" leading="relaxed">
-                Create the webhook with the workspace key. Run this in a terminal with GRANOLA_API_KEY set (or paste the key in
-                place of $GRANOLA_API_KEY). The signing secret is shown once in the response.
-              </Text>,
-              <CodeBlock key="b" text={live.granola_curl || ""} />,
-              <SecretField
-                key="c"
-                name="GRANOLA_WEBHOOK_SECRET"
-                label="Webhook signing secret (whsec_...)"
-                required
-                isSet={env.keys.GRANOLA_WEBHOOK_SECRET}
-                value={values.GRANOLA_WEBHOOK_SECRET || ""}
-                onChange={(v) => setValues({ ...values, GRANOLA_WEBHOOK_SECRET: v })}
-              />,
-            ]}
+          <GuideSteps guide={granolaWebhook(live.receiver_url)} />
+          <SecretField
+            name="GRANOLA_WEBHOOK_SECRET"
+            label="Webhook signing secret (whsec_...)"
+            required
+            isSet={env.keys.GRANOLA_WEBHOOK_SECRET}
+            value={values.GRANOLA_WEBHOOK_SECRET || ""}
+            error={error("env.GRANOLA_WEBHOOK_SECRET")}
+            onBlur={flush}
+            onChange={(v) => setValues({ ...values, GRANOLA_WEBHOOK_SECRET: v })}
           />
+          <CollapsibleSection title="Or create it with the API" titleSize="sm">
+            <div className="flex flex-col gap-2">
+              <Text size="sm" color="muted" leading="relaxed">
+                Run this in a terminal with GRANOLA_API_KEY set (or paste the key in place of $GRANOLA_API_KEY). The
+                signing secret is in the response, shown once.
+              </Text>
+              <CodeBlock text={live.granola_curl || ""} />
+            </div>
+          </CollapsibleSection>
         </div>
       )}
       {circleback && (
@@ -129,44 +134,34 @@ function Recorders({ live, env, onSaved }: { live: GoLive; env: EnvStatus; onSav
           <Text size="sm" weight="semibold">
             Circleback, once per person
           </Text>
-          <Text size="sm" color="muted" leading="relaxed">
-            Signed in to their own account: make a tag called exactly discovery, then Automations, New automation. Condition:
-            has the tag discovery. Action: Send webhook request to their URL below, with the transcript, notes and attendees.
-            Copy the signing secret it shows.
-          </Text>
           {live.circleback_people.map((p) => (
             <div key={p} className="flex flex-col gap-3 rounded-md border border-rule bg-bg-raised shadow-xs p-4">
-              <CodeBlock label={`${p}: endpoint URL`} text={live.circleback_urls?.[p] || ""} />
+              <Text size="sm" weight="medium">
+                {p}
+              </Text>
+              <GuideSteps guide={circlebackSecret(live.receiver_url, p)} />
               <SecretField
                 name={personVar("CIRCLEBACK_SIGNING_SECRET_", p)}
                 label={`Signing secret for ${p}`}
                 required
                 isSet={Boolean(env.keys[personVar("CIRCLEBACK_SIGNING_SECRET_", p)])}
                 value={values[personVar("CIRCLEBACK_SIGNING_SECRET_", p)] || ""}
+                error={error(`env.${personVar("CIRCLEBACK_SIGNING_SECRET_", p)}`)}
+                onBlur={flush}
                 onChange={(v) => setValues({ ...values, [personVar("CIRCLEBACK_SIGNING_SECRET_", p)]: v })}
               />
             </div>
           ))}
           {!live.circleback_people.length && (
-            <Note title="No one is set to record on Circleback" description="Pick people in step 4." variant="warn" />
+            <Note title="No one is set to record on Circleback" description="Pick people in step 2." variant="warn" />
           )}
         </div>
       )}
-      {!live.recorder && <Note title="Pick a recorder in step 4 first." variant="warn" />}
+      {!live.recorder && <Note title="Pick a recorder in step 2 first." variant="warn" />}
       {live.recorder && (
         <div className="flex flex-col gap-3">
-          <div>
-            <Button onClick={submit} loading={save.saving} variant="secondary">
-              Save secrets
-            </Button>
-          </div>
-          {save.problems.map((p) => (
-            <Text key={p} size="sm" color="danger">
-              {p}
-            </Text>
-          ))}
           <Text size="sm" color="muted" leading="relaxed">
-            Then run the deploy command (step 9) again: it pushes the new secrets and restarts the services so they read
+            Then run the deploy command (step 6) again: it pushes the new secrets and restarts the services so they read
             them.
           </Text>
         </div>
@@ -175,60 +170,36 @@ function Recorders({ live, env, onSaved }: { live: GoLive; env: EnvStatus; onSav
   );
 }
 
-export function StepGoLive({ env, nav, onSaved }: { env: EnvStatus; nav: StepNav; onSaved: () => void }) {
-  const { data, mutate } = useApi<GoLive>("golive");
-  if (!data) {
-    return (
-      <StepFrame nav={nav} title="Go live" intro="Loading...">
-        <div className="py-8">
-          <Spinner />
-        </div>
-      </StepFrame>
-    );
-  }
-  return (
-    <GoLiveForm
-      key={`${data.ingest_cutoff}-${data.schedules_on}`}
-      live={data}
-      env={env}
-      nav={nav}
-      onSaved={() => {
-        mutate();
-        onSaved();
-      }}
-    />
-  );
-}
+export function StepGoLive({ live, env, nav }: { live: GoLive; env: EnvStatus; nav: StepNav }) {
+  const step = "golive" as const;
+  const [cutoff, setCutoff] = useDraft(step, "cutoff", () => toLocalInput(live.ingest_cutoff));
+  const [schedules, setSchedules] = useDraft(step, "schedules", () => live.schedules_on);
+  const [values, setValues] = useDraft<Record<string, string>>(step, "secret:values", () => ({}), { secret: true });
+  const quiet = useQuietSet(step);
+  const flush = useFlush(step);
+  const { error } = useProblems(step);
 
-function GoLiveForm({ live, env, nav, onSaved }: { live: GoLive; env: EnvStatus; nav: StepNav; onSaved: () => void }) {
-  const [cutoff, setCutoff] = useState(toLocalInput(live.ingest_cutoff));
-  const [schedules, setSchedules] = useState(live.schedules_on);
-  const save = useSave();
-
-  function submit() {
+  useSaver(step, () => {
     const body = { ingest_cutoff: cutoff ? toIsoWithOffset(cutoff, live.timezone) : null, schedules_on: schedules };
-    save
-      .run(
-        () => api<GoLive & { changed: string[] }>("golive", "PUT", body),
-        (r) => (r.changed.length ? `Wrote ${r.changed.join(", ")}` : "Nothing changed on disk."),
-      )
-      .then((r) => {
-        if (r) onSaved();
-      });
-  }
+    const secrets = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim()));
+    return api<GoLive & { problems: FieldProblem[] }>("golive", "PUT", body).then((g) =>
+      api<EnvStatus & { written: string[]; problems: FieldProblem[] }>("env", "PUT", { values: secrets }).then((e) => {
+        if (e.written.length) {
+          quiet("secret:values", Object.fromEntries(Object.entries(values).filter(([k]) => !e.written.includes(k))));
+        }
+        return [...(g.problems || []), ...e.problems];
+      }),
+    );
+  });
 
   return (
     <StepFrame
       nav={nav}
       title="Go live"
       intro="Connect your recorder, pick the moment calls start counting, and switch the schedules on."
-      onSave={submit}
-      saving={save.saving}
-      problems={save.problems}
-      saveLabel="Save go-live settings"
     >
       <Section title="Recorder webhooks" description="Do this after the first full deploy, when the receiver answers.">
-        <Recorders live={live} env={env} onSaved={onSaved} />
+        <Recorders live={live} env={env} values={values} setValues={setValues} flush={flush} error={error} />
       </Section>
       <Section
         title="Ingest cutoff"
@@ -255,6 +226,11 @@ function GoLiveForm({ live, env, nav, onSaved }: { live: GoLive; env: EnvStatus;
               </Button>
             )}
           </div>
+          {error("pipeline.ingest_cutoff") && (
+            <Text size="xs" color="danger">
+              {error("pipeline.ingest_cutoff")}
+            </Text>
+          )}
           {cutoff && (
             <Text size="xs" color="faint" mono>
               ingest_cutoff: {toIsoWithOffset(cutoff, live.timezone)}

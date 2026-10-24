@@ -213,10 +213,10 @@ def test_every_finding_lands_in_exactly_one_group(ctx, arbiter):
 def test_a_group_without_text_or_scope_keeps_the_members(ctx, arbiter):
     rich = [[finding((100, 150), model="fake:a", text="primary text", line="cyber")],
             [finding((400, 420), model="fake:b", text="second text")]]
-    arbiter(lambda s, p, schema: {"groups": [group(["b1", "a1"], "", seat="a seat nobody listed")]})
+    arbiter(lambda s, p, schema: {"groups": [group(["b1", "a1"], "", seat="A Seat Nobody Listed")]})
     [out], _ = merge.consolidate(ctx, None, rich)
     assert out.text == "primary text"                  # the primary extractor's member leads
-    assert out.scope.seat == "other" and out.scope.line is None   # the group's scope, seat mapped to the list
+    assert out.scope.seat == "a seat nobody listed" and out.scope.line is None   # the group's scope, new seat kept
 
 
 def test_consolidation_failure_falls_back_to_overlap_merge(ctx, arbiter):

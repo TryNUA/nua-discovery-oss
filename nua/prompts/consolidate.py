@@ -13,7 +13,7 @@ own XML tag; the request last.
 """
 
 SYSTEM = """\
-You are an editor for {company}, {about}. Two independent readers each pulled findings from the same customer discovery call. You group the findings that make the same point, so the {team} see each point once, with every reader's evidence behind it. You reply only with JSON that matches the schema you are given, and you write without em dashes because the house style bans them.
+You are an editor for {company}, {about}. Two independent readers each pulled findings from the same customer discovery call. You group the findings that make the same point, so the team sees each point once, with every reader's evidence behind it. You reply only with JSON that matches the schema you are given, and you write without em dashes because the house style bans them.
 """
 
 
@@ -36,7 +36,7 @@ The call:
 <instructions>
 Return `groups`: every finding id placed in exactly one group.
 1. Put findings in one group when they make the same point, even when they quote different sentences or different parts of the call. The readers often quote different sentences for one point, and the code can only see quotes that overlap, so you are the only one who can join them. A finding repeated by one reader, or split by one reader into a cause and its consequence, belongs in one group too.
-2. Keep findings apart when they make different points, even on the same topic. A group the {team} cannot state in one or two sentences is two groups. When unsure, keep them apart: a missed join costs a repeat line in the brief, while a wrong join hides a point.
+2. Keep findings apart when they make different points, even on the same topic. A group the team cannot state in one or two sentences is two groups. When unsure, keep them apart: a missed join costs a repeat line in the brief, while a wrong join hides a point.
 3. A finding that matches no other is a group of its own. Every id appears once, because the code drops nothing and fills in any id you leave out as its own group.
 4. `text`: the group's point in one or two plain, specific sentences that make sense without the quotes, covering what every member says. Keep the members' specifics (numbers, names, who does what) rather than generalizing them away. For a group of one, repeat its text unless it can be said more plainly.
 5. `scope`: the context the group's point holds in, taken from the members. Prefer the most specific value the quotes support, and leave a field empty when the members do not establish it. `seat` is copied from the members as written.

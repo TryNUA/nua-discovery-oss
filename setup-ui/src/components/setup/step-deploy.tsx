@@ -101,7 +101,7 @@ export function StepDeploy({ nav }: { nav: StepNav }) {
           {gcp &&
             "The first run creates the state bucket, runs terraform init and prints the receiver URL. It stops if the GitHub App or keys are missing; fill them in and run it again. A full run applies stage 1, pushes the secrets from .env, builds the image, applies stage 2 and checks the receiver."}
           {!gcp &&
-            "The first run creates the state bucket, applies stage 1, builds the image with CodeBuild and applies stage 2, then prints the receiver URL. Then create the GitHub and Slack apps (steps 6 and 7) and run it again to push their secrets."}
+            "The first run creates the state bucket, applies stage 1, builds the image with CodeBuild and applies stage 2, then prints the receiver URL. Then create the GitHub and Slack apps (steps 4 and 5) and run it again to push their secrets."}
         </Text>
         <Text size="xs" color="faint">
           Add --dry-run to print every command without running any.{" "}

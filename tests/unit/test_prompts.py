@@ -122,3 +122,20 @@ def test_domain_yml_falls_back_to_neutral_defaults(tmp_path):
     assert d.company == "Zephyr" and d.scope["line"] == "the workflow" and d.scope["party"]
     assert d.roles == {"buyer": "buys it"} and d.market == "our market"
     assert _load_domain("not a mapping").company == "our company"
+
+
+def test_old_domain_keys_are_ignored_and_about_is_derived(ctx):
+    from nua.config import _load_domain
+    from nua.prompts import domain_values
+
+    d = _load_domain({"company": "Zephyr", "market": "dental practices", "team": "cofounders",
+                      "about": "an old line", "interviewees": "dentists"})
+    assert d.company == "Zephyr" and not hasattr(d, "team") and not hasattr(d, "interviewees")
+    ctx.config.domain = d
+    values = domain_values(ctx.config)
+    assert values["about"] == "a team deciding what to build for dental practices"
+    assert not {"team", "interviewees"} & set(values)
+    for name in PARTS:
+        module = importlib.import_module(f"nua.prompts.{name}")
+        for part in PARTS[name]:
+            assert "{team}" not in getattr(module, part) and "{interviewees}" not in getattr(module, part)

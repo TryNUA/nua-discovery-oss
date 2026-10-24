@@ -360,9 +360,15 @@ def _load_dotenv(root: Path) -> None:
 
 
 def _test_channels(cfg: "Config") -> None:
-    """NUA_SLACK_TEST=1: every channel becomes the test channel (staging and go-live checks)."""
+    """NUA_SLACK_TEST=1: every channel becomes the test channel (staging and go-live checks).
+
+    With no test channel (`channels.test` empty in config/pipeline.yml) this refuses to start the task
+    rather than fall back to a real channel: staging posts must never land in the briefs or ops channel."""
     if env("NUA_SLACK_TEST") == "1":
-        test = cfg.pipeline.channels.get("test", "#discovery-test")
+        test = (cfg.pipeline.channels.get("test") or "").strip()
+        if not test:
+            raise SettingsError("NUA_SLACK_TEST=1 (slack_test_mode) needs a staging channel: set channels.test in "
+                                "config/pipeline.yml, or turn slack_test_mode off in terraform.tfvars")
         cfg.pipeline.channels = {name: test for name in cfg.pipeline.channels}
 
 

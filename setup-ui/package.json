@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/copy-out.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/lib/*.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "1.3.3",

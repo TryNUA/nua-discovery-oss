@@ -225,14 +225,49 @@ def _opt(value: Any) -> str | None:
     return None if s.lower() in _EMPTY else s
 
 
-def _seat(config: Config, value: Any) -> str | None:
+SEAT_MAX_CHARS = 60
+
+
+def _seat(config: Config, value: Any, known: list[str] | None = None) -> str | None:
+    """A seat as stored: the known seat it matches (case and spacing ignored, spelled as known), else the
+    model's own value lower-cased and cut to SEAT_MAX_CHARS. A new seat is kept, so the list grows itself.
+    `known` defaults to the seed list in config/seats.yml."""
     s = _opt(value)
-    if not s or not config.seats:
-        return s
-    for seat in config.seats:
-        if seat.lower() == s.lower():
+    if not s:
+        return None
+    s = " ".join(s.split())
+    for seat in (config.seats if known is None else known):
+        if " ".join(seat.split()).lower() == s.lower():
             return seat
-    return "other" if "other" in config.seats else None
+    return s.lower()[:SEAT_MAX_CHARS].strip() or None
+
+
+def known_seats(ctx: Ctx) -> list[str]:
+    """The seed seats in config/seats.yml, then every seat already on a digested call, each once (case
+    ignored). Calls come from calls.csv, which the pipeline regenerates after every call; without it, from
+    the digests."""
+    import csv
+    import io
+
+    if ctx.repo.exists("calls.csv"):
+        rows = csv.DictReader(io.StringIO(ctx.repo.read("calls.csv")))
+        heard = [r.get("seat") for r in rows if r.get("status") == "digested"]
+    else:
+        from nua.digest import load_digests
+        heard = [d.seat for d in load_digests(ctx.repo) if d.status == "digested"]
+    return merge_seats(ctx.config.seats, heard)
+
+
+def merge_seats(seed: Iterable[str], heard: Iterable[str | None]) -> list[str]:
+    """`seed` then every seat in `heard` not already listed (case and spacing ignored), in order."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for seat in [*seed, *heard]:
+        seat = " ".join((seat or "").split())
+        if seat and seat.lower() not in seen:
+            seen.add(seat.lower())
+            out.append(seat)
+    return out
 
 
 def _dedupe(items: Iterable[str | None]) -> list[str]:
@@ -251,7 +286,7 @@ def to_quote(q: QuoteReply) -> Quote | None:
     return Quote(quote=text, turns=list(q.turns), question_turn=q.question_turn, speaker=_opt(q.speaker))
 
 
-def to_claim(config: Config, spec: str, c: ClaimReply) -> Claim | None:
+def to_claim(config: Config, spec: str, c: ClaimReply, seats: list[str] | None = None) -> Claim | None:
     """A model's finding as a Claim tagged with `spec`, keeping its first MAX_QUOTES non-empty quotes;
     None when it has no text or no quote."""
     text = clean_text(c.text)
@@ -263,7 +298,7 @@ def to_claim(config: Config, spec: str, c: ClaimReply) -> Claim | None:
         text=text,
         quotes=quotes,
         scope=Scope(line=_opt(c.scope.line), party=_opt(c.scope.party), segment=_opt(c.scope.segment),
-                    seat=_seat(config, c.scope.seat)),
+                    seat=_seat(config, c.scope.seat, seats)),
         flags=Flags(hedged=c.flags.hedged, firsthand=c.flags.firsthand, prompted=c.flags.prompted),
         model=spec,
     )
@@ -275,17 +310,18 @@ def _role(config, value: str | None) -> str | None:
     return role if role in config.domain.roles else None
 
 
-def to_result(config: Config, spec: str, data: Any) -> ExtractionResult:
-    """Normalize an extraction reply: seats from the list, entity names canonical, caps applied.
+def to_result(config: Config, spec: str, data: Any, *, seats: list[str] | None = None) -> ExtractionResult:
+    """Normalize an extraction reply: seats matched to `seats` (default the seed list) or kept as new,
+    entity names canonical, caps applied.
 
     Raises LLMError when the reply does not have the expected shape.
     """
     reply = parse_reply(ExtractReply, data, f"{spec}: extraction reply")
     w = reply.who
     who = Who(contact=config.canonical(_opt(w.contact)), firm=config.canonical(_opt(w.firm)),
-              firm_source=w.firm_source, seat=_seat(config, w.seat),
+              firm_source=w.firm_source, seat=_seat(config, w.seat, seats),
               institution_type=_opt(w.institution_type), role_in_thesis=_role(config, w.role_in_thesis))
-    claims = [c for c in (to_claim(config, spec, x) for x in reply.findings) if c]
+    claims = [c for c in (to_claim(config, spec, x, seats) for x in reply.findings) if c]
     follow_ups = [
         FollowUp(direction=f.direction, what=clean_text(f.what), who=_opt(f.who), quote=f.quote.strip())
         for f in reply.follow_ups if f.direction is not None and clean_text(f.what)
@@ -308,12 +344,13 @@ def _entities_text(config: Config) -> str:
     return "\n".join(lines) or "(none)"
 
 
-def extract_values(ctx: Ctx, parsed: ParsedTranscript) -> dict[str, Any]:
-    """Placeholders for nua/prompts/extract.py EXTRACT (and SYSTEM)."""
+def extract_values(ctx: Ctx, parsed: ParsedTranscript, seats: list[str] | None = None) -> dict[str, Any]:
+    """Placeholders for nua/prompts/extract.py EXTRACT (and SYSTEM). `seats` defaults to known_seats(ctx)."""
     cfg = ctx.config
+    seats = known_seats(ctx) if seats is None else seats
     return {
         **call_values(ctx, parsed),
-        "seats": "\n".join(f"- {s}" for s in cfg.seats) or "- other",
+        "seats": "\n".join(f"- {s}" for s in seats) or "(none yet)",
         "entities": _entities_text(cfg),
         "notes": parsed.notes.strip() or "(none)",
         "transcript": numbered_transcript(parsed),
@@ -330,14 +367,15 @@ def extract(ctx: Ctx, parsed: ParsedTranscript) -> tuple[list[ExtractionResult],
     specs = list(ctx.config.pipeline.extractors)
     if not specs:
         raise ValueError("config/pipeline.yml lists no extractors")
-    values = extract_values(ctx, parsed)
+    seats = known_seats(ctx)
+    values = extract_values(ctx, parsed, seats)
     system = fill(extract_prompt.SYSTEM, values)
     prompt = fill(extract_prompt.EXTRACT, values)
 
     def run(spec: str) -> ExtractionResult:
         data = ctx.llms(spec).complete_json(system=system, prompt=prompt, schema=EXTRACT_SCHEMA,
                                             max_tokens=EXTRACT_MAX_TOKENS)
-        return to_result(ctx.config, spec, data)
+        return to_result(ctx.config, spec, data, seats=seats)
 
     results, errors = [], []
     for spec, result, err in run_parallel(specs, run):

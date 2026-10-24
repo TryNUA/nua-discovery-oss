@@ -2,7 +2,7 @@
 
 A fictional three-person startup, Acme, deciding what to build for property and casualty insurance: claims (footage as evidence, fraud, adjuster workload), underwriting (submission intake and research) and actuarial pricing and reserving.
 
-- `domain.yml`: the market, problem areas, interviewees, scope fields and roles.
+- `domain.yml`: company, market, what is being explored, scope fields and roles.
 - `seats.yml`: 20 seats grouped by underwriting, actuarial, risk, claims and distribution.
 - `entities.yml`: ASR aliases heard in the test fixtures.
 

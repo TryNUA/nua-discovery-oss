@@ -86,7 +86,7 @@ def command(args: argparse.Namespace, root: Path) -> int:
     print("Then: Install to Workspace, and copy into .env (never into tfvars):")
     print("  SLACK_BOT_TOKEN       OAuth & Permissions > Bot User OAuth Token (xoxb-...)")
     print("  SLACK_SIGNING_SECRET  Basic Information > App Credentials > Signing Secret")
-    print(f"Invite @{bot_name} to your briefs, ops and test channels (config/pipeline.yml `channels`).")
+    print(f"Invite @{bot_name} to your briefs and ops channels (config/pipeline.yml `channels`).")
     if not args.no_events:
         print("If Slack refuses the events URL because the receiver is not deployed yet, re-run with "
               "--no-events and turn Event Subscriptions on after deploy (docs/self-hosting.md, step 9).")

@@ -2,7 +2,7 @@
 
 How the pipeline behaves. Code docstrings point into this file by section name (`SPEC "Nightly sweep"`), so the section headings stay stable.
 
-A knowledge base of one team's customer discovery calls. What the discovery is about (the company, the market, who gets interviewed, the problem areas being explored, what the scope fields and roles mean) is configured in `config/domain.yml`, and the team in `config/people.yml`. Calls come in from Granola or Circleback, get digested on GCP when they land, and are read in Slack, by any AI agent working in a clone of the repo (`AGENTS.md`), or through an experimental MCP server.
+A knowledge base of one team's customer discovery calls. What the discovery is about (the company, who it sells to, what it is exploring, and optionally what the scope fields and roles mean) is configured in `config/domain.yml`, and the team in `config/people.yml`. Calls come in from Granola or Circleback, get digested on GCP when they land, and are read in Slack, by any AI agent working in a clone of the repo (`AGENTS.md`), or through an experimental MCP server.
 
 Examples in this spec use the shipped example domain, a fictional startup ("Acme": Alex, Sam and Jordan) exploring AI for P&C insurance. Every name, firm and quote in them is made up.
 
@@ -263,7 +263,7 @@ In this order:
 2. **Origin:** `live` or `backfill`, from the transcript's front-matter.
 3. **Internal check.** Internal calls get a stub.
 4. **Duplicate check** (see Duplicates for when it runs). If this copy loses, record it under the winner's `duplicates` if the winner has run, then stop. If it wins and another copy already has a digest, continue as a supersede (unless that call is cited) and take over its call id.
-5. **Extract** (both extraction models, in parallel). Each gets the numbered transcript, the recorder notes labeled as context only, `config/seats.yml`, `config/entities.yml`, the team from `config/people.yml` and the domain brief from `config/domain.yml`. Each returns, schema-enforced with retries:
+5. **Extract** (both extraction models, in parallel). Each gets the numbered transcript, the recorder notes labeled as context only, the known seats (`config/seats.yml` plus every seat on a digested call, from `calls.csv`), `config/entities.yml`, the team from `config/people.yml` and the domain brief from `config/domain.yml`. Each returns, schema-enforced with retries:
    - who: contact, firm, seat, institution type, role in the thesis
    - summary, 5 bullets max
    - findings (stored under `claims`): one point stated in `text`, backed by 1 to 3 quotes, each with its turn(s), `question_turn` for a short answer (8 words or fewer) and speaker; scope and flags per finding
@@ -327,7 +327,7 @@ attendees: [{name: Jane Doe, email: jane@example.com}]
 contact: Jane Doe
 firm: Example Mutual
 firm_source: transcript          # transcript | attendee_email | manual
-seat: claims adjuster (staff)    # from config/seats.yml
+seat: claims adjuster (staff)    # a known seat, or a new short role
 institution_type: commercial carrier
 role_in_thesis: carrier          # an id from roles in config/domain.yml
 speaker_labels: named
@@ -385,7 +385,7 @@ A finding's `scope` says where it holds. Every key is optional. What `line`, `pa
 - `line`: line of business or coverage, e.g. workers' comp, commercial auto, cyber, property, general liability
 - `party`: the kind of firm it is about, e.g. carrier, MGA, broker, insured, TPA, reinsurer, vendor
 - `segment`: the market, e.g. small commercial, middle market, E&S, personal lines, specialty
-- `seat`: the seat it comes from, from `config/seats.yml`
+- `seat`: the seat it comes from. A seat matching a known one (case ignored) is spelled as known; anything else is kept, lower-cased and cut to 60 characters, so the list grows itself
 
 `role_in_thesis` places the contact relative to what the team is building. The ids and their meanings come from `roles` in `config/domain.yml` (keep `expert` and `competitor`); the shipped example:
 - `carrier`: works at an insurer or reinsurer
@@ -718,8 +718,8 @@ config/
   people.yml            the team: name, email, slack id, github login, circleback key name
   entities.yml          ASR alias map, with confidence and source per alias
                         (e.g. "guide wire" for Guidewire)
-  seats.yml             fixed seat list (e.g. underwriter, pricing actuary,
-                        claims adjuster (staff), SIU / fraud investigator)
+  seats.yml             optional seed seats (e.g. underwriter, pricing actuary); the list
+                        grows from the calls. Only these count as "not yet heard from"
   pipeline.yml          model roles (extractors in order, arbiter, ask models, rollup),
                         thresholds, per-task cost cap, prompt_version,
                         ingest_cutoff, reprocess_stale, internal_email_domains, channels

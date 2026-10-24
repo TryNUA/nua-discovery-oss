@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, RefreshCw } from "lucide-react";
 
 import { api, problemsOf, useApi, type DeployInfo, type GithubStatus, type ReceiverInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { CollapsibleSection } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
 import { Text } from "@/components/ui/text";
 import { Field, LinkButton, Note, Section, SetBadge } from "@/components/setup/common";
 import { StepFrame, type StepNav } from "@/components/setup/frame";
+import { useDraft, useProblems, useSaver, type FieldProblem } from "@/components/setup/store";
 
 const RUNNING = ["starting", "waiting", "installing"];
 
@@ -67,21 +69,42 @@ function Progress({ status }: { status: GithubStatus }) {
   );
 }
 
-export function StepGithub({ deploy, nav, onSaved }: { deploy: DeployInfo; nav: StepNav; onSaved: () => void }) {
-  const [repo, setRepo] = useState(deploy.repo);
-  const [owner, setOwner] = useState("");
-  const [name, setName] = useState("");
+export function StepGithub({
+  deploy,
+  nav,
+  onSaved,
+  onCheck,
+}: {
+  deploy: DeployInfo;
+  nav: StepNav;
+  onSaved: () => void;
+  onCheck: () => void;
+}) {
+  const step = "github" as const;
+  const [repo, setRepo] = useDraft(step, "repo", () => deploy.repo);
+  const [owner, setOwner] = useDraft(step, "owner", () => "");
+  const [name, setName] = useDraft(step, "name", () => "");
   const [problems, setProblems] = useState<string[]>([]);
+  const { error } = useProblems(step);
   const [busy, setBusy] = useState(false);
   const receiver = useApi<ReceiverInfo>("receiver");
   const { data: status, mutate } = useApi<GithubStatus>("github", 2000);
   const running = Boolean(status && RUNNING.includes(status.status));
+  const repoOwner = repo.includes("/") ? repo.split("/")[0].trim() : "";
+  const appOwner = owner.trim() || repoOwner;
+  const appName = name.trim() || status?.default_name || "";
   const saved = status?.saved;
+  const nameProblem = appName.length > 34 ? "At most 34 characters (a GitHub limit)." : undefined;
+
+  // the repo is the only field here that lives in a file (state and tfvars); owner and name are used on Create
+  useSaver(step, () =>
+    api<DeployInfo & { problems: FieldProblem[] }>("deploy", "PUT", { repo: repo.trim() }).then((r) => r.problems || []),
+  );
 
   function start() {
     setProblems([]);
     setBusy(true);
-    api<GithubStatus>("github/start", "POST", { repo, owner, name })
+    api<GithubStatus>("github/start", "POST", { repo, owner: appOwner, name: appName })
       .then((s) => mutate(s))
       .catch((e) => setProblems(problemsOf(e)))
       .finally(() => setBusy(false));
@@ -104,19 +127,25 @@ export function StepGithub({ deploy, nav, onSaved }: { deploy: DeployInfo; nav: 
       nav={nav}
       title="GitHub App"
       intro="Lets the pipeline commit to your repo and sends push webhooks to the receiver. One click on GitHub creates it with the right permissions."
-      problems={problems}
-      onSave={start}
-      saving={busy || running}
-      saveLabel={saved?.app ? "Create a new GitHub App" : "Create GitHub App"}
-      saveDisabled={!receiver.data?.url || running}
       aside={
-        saved?.app && (
-          <Button variant="secondary" onClick={checkInstall} loading={busy} disabled={running}>
-            Check installation
+        <>
+          <Button onClick={start} loading={busy || running} disabled={!receiver.data?.url || running || Boolean(nameProblem)}>
+            {saved?.app && "Create a new GitHub App"}
+            {!saved?.app && "Create GitHub App"}
           </Button>
-        )
+          {saved?.app && (
+            <Button variant="secondary" onClick={checkInstall} loading={busy} disabled={running}>
+              Check installation
+            </Button>
+          )}
+        </>
       }
     >
+      {problems.length > 0 && (
+        <div className="pt-6">
+          <Note title="That did not work" description={problems.join(" ")} variant="danger" />
+        </div>
+      )}
       <Section title="Where it points">
         {receiver.isLoading && (
           <div className="flex items-center gap-2">
@@ -138,27 +167,52 @@ export function StepGithub({ deploy, nav, onSaved }: { deploy: DeployInfo; nav: 
         )}
         {receiver.data && !receiver.data.url && <Note title="No receiver URL yet" description={receiver.data.how_to} variant="warn" />}
       </Section>
-      <Section title="Repo and owner">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Field id="gh-repo" label="Repo" mono placeholder="acme/discovery" value={repo} onChange={setRepo} required />
+      <Section title="Repo and app">
+        <div className="flex flex-col gap-3">
           <Field
-            id="gh-owner"
-            label="App owner"
+            id="gh-repo"
+            label="Your private repo"
             mono
-            placeholder="the repo owner"
-            hint="A user or organization. Default: the repo's owner."
-            value={owner}
-            onChange={setOwner}
+            placeholder="acme/discovery"
+            value={repo}
+            error={error("repo")}
+            onChange={setRepo}
+            required
           />
-          <Field
-            id="gh-name"
-            label="App name"
-            mono
-            placeholder={repo.includes("/") ? `${repo.split("/")[1]}-bot` : "discovery-bot"}
-            hint="Unique on GitHub. You can change it there."
-            value={name}
-            onChange={setName}
-          />
+          <Text size="sm" color="muted">
+            Creates the app{" "}
+            <Text size="sm" mono>
+              {appName || "..."}
+            </Text>{" "}
+            owned by{" "}
+            <Text size="sm" mono>
+              {appOwner || "the repo owner"}
+            </Text>
+            .
+          </Text>
+          <CollapsibleSection title="Change">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field
+                id="gh-owner"
+                label="App owner"
+                mono
+                placeholder={repoOwner || "the repo owner"}
+                hint="The account or organization that owns the repo; otherwise the app cannot be installed on it."
+                value={owner}
+                onChange={setOwner}
+              />
+              <Field
+                id="gh-name"
+                label="App name"
+                mono
+                placeholder={status?.default_name || "nua-discovery"}
+                hint="Unique on GitHub, at most 34 characters. Commits show as <name>[bot]."
+                value={name}
+                error={nameProblem}
+                onChange={setName}
+              />
+            </div>
+          </CollapsibleSection>
         </div>
       </Section>
       <Section title="Status">
@@ -176,6 +230,13 @@ export function StepGithub({ deploy, nav, onSaved }: { deploy: DeployInfo; nav: 
               </Text>
               <SetBadge set={Boolean(saved?.installation_id)} />
             </div>
+            <Button variant="outline" size="sm" type="button" onClick={() => {
+                mutate();
+                onCheck();
+              }}>
+              <RefreshCw className="w-3.5 h-3.5" />
+              Check again
+            </Button>
           </div>
           {status && status.status !== "idle" && <Progress status={status} />}
           {status?.status === "idle" && saved?.app && !saved.installation_id && status.install_url && (
@@ -188,7 +249,7 @@ export function StepGithub({ deploy, nav, onSaved }: { deploy: DeployInfo; nav: 
           )}
           <Text size="xs" color="faint" leading="relaxed">
             GitHub pings the webhook right away. That delivery fails until the receiver is deployed, which is fine:
-            redeliver it after step 9.
+            redeliver it after step 6.
           </Text>
         </div>
       </Section>

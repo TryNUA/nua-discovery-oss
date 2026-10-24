@@ -1,10 +1,12 @@
-# Seat list: the role someone speaks from on a call, such as "head of finance", "IT buyer" or
-# "end user". Evidence for each belief is counted by seat, so keep the list short (10 to 20) and
-# distinct. What the call is about (a product line, a workflow) goes in the claim scope, not the seat.
-# Add "other" as a catch-all: a seat a model names that is not on the list becomes "other".
-# Fill it in with `uv run python -m nua init`, or by hand as one "- seat" line each, e.g.
+# Seats: the job role someone speaks from on a call, such as "head of finance" or "claims manager".
+# Evidence for each belief is counted by seat. This file is optional: the list grows itself. On every
+# call the extractor sees these seats plus every seat already on a digested call, reuses one when the
+# role matches and otherwise writes a new short generic role (lowercase, no firm or person names).
+# Seed it to steer the names from day one, one "- seat" line each, e.g.
 #   - head of operations
 #   - other
-# Empty: seats are left as the models name them, which makes counting evidence by seat unreliable.
+# Seats listed here are also the ones open-questions.md reports as "not yet heard from".
+# To merge two seats later: add the one to keep here, and correct past calls in config/overrides.yml
+# (`<call id>: {seat: head of operations}`), then run `nua reindex`.
 # See examples/insurance/seats.yml and examples/freight-brokerage/seats.yml.
 []

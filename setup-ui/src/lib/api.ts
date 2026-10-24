@@ -1,17 +1,14 @@
 // Client for the local API in nua/setup/server.py. Every call carries the per-run token from the link
 // `nua setup` printed (?token=...), kept in sessionStorage so a reload without it still works.
 
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 
 const TOKEN_KEY = "nua.setup.token";
 
 export type Domain = {
   company: string;
-  team: string;
-  about: string;
   market: string;
   exploring: string;
-  interviewees: string;
   institution_examples: string;
   bot_name: string;
   scope: { line: string; party: string; segment: string };
@@ -39,25 +36,17 @@ export type SetupConfig = {
   seats: string[];
   pipeline: Pipeline;
   examples: string[];
+  personal_domains: string[];
 };
 
-export type StepId =
-  | "discovery"
-  | "team"
-  | "seats"
-  | "recorder"
-  | "cloud"
-  | "github"
-  | "slack"
-  | "models"
-  | "deploy"
-  | "golive";
+export type StepId = "team" | "recorder" | "cloud" | "github" | "slack" | "deploy" | "golive";
 
 export type Cloud = "gcp" | "aws";
 export type Recorder = "granola" | "circleback" | "both";
 
 export type Status = {
   steps: Record<StepId, boolean>;
+  started?: Record<StepId, boolean>;
   cloud: Cloud;
   recorder: Recorder | null;
   root: string;
@@ -83,10 +72,11 @@ export type DeployInfo = {
   timezone: string;
   people: string[];
   receiver_url_override: string;
+  aws_profile?: string;
   aws_ready: boolean;
 };
 
-export type ReceiverInfo = { url: string | null; source: string | null; how_to: string };
+export type ReceiverInfo = { url: string | null; source: string | null; how_to: string; detail?: string };
 
 export type SlackInfo = {
   receiver_url: string | null;
@@ -108,6 +98,7 @@ export type GithubStatus = {
   slug?: string;
   repo?: string;
   saved: { app: boolean; slug: string; installation_id: string };
+  default_name?: string;
 };
 
 export type Check = { id: string; label: string; ok: boolean; fix: string; detail: string };
@@ -184,4 +175,10 @@ function fetcher<T>(path: string): Promise<T> {
 
 export function useApi<T>(path: string | null, refreshInterval = 0) {
   return useSWR<T>(path, fetcher, { revalidateOnFocus: true, refreshInterval });
+}
+
+/** Re-fetch the live views that depend on files a person may edit by hand (not the slow checks). */
+export function refreshLive(): Promise<unknown> {
+  const live = ["status", "env", "deploy", "receiver", "slack", "golive", "github"];
+  return globalMutate((key) => typeof key === "string" && live.includes(key));
 }

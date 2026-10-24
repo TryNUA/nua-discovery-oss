@@ -234,7 +234,7 @@ As [GCP step 10](self-hosting.md#step-10-go-live), with these commands:
 | Slack bot | `@Nua Discovery list beliefs`, then a real question. The answer ends with `read N/N digests` |
 | Terraform | `terraform -chdir=infra/aws/terraform plan` shows no changes, even after code deploys |
 
-While testing you can set `slack_test_mode = true` and apply: every Slack post then goes to `#discovery-test`.
+Optional, for staging: set `slack_test_mode = true` and apply, and every Slack post goes to `channels.test` (default `#discovery-test`). With `channels.test` empty, test mode refuses to run.
 
 ## How it behaves on AWS
 

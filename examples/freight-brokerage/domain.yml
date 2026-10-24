@@ -6,27 +6,16 @@
 # Your company, as the models should name it ("Halyard Labs people are the interviewers").
 company: Halyard Labs
 
-# Who reads the findings and decides. Used as "the <team>" in prompts and briefs.
-team: founders
+# Who you sell to, in a few words.
+market: mid-size freight brokerages
 
-# One line: who you are and what you are deciding.
-about: a two-person startup deciding what to build for the back office of mid-size freight brokerages
-
-# The market in a few words, for short mentions ("discovery calls with people in <market>").
-market: freight brokerage
-
-# The problem areas you are exploring. Findings are judged against these.
+# The problems or questions you want your calls to answer. Findings are judged against these.
 exploring: >-
   carrier onboarding and vetting (fraud, double brokering, insurance checks), track and trace,
   carrier payments and disputes, shipper audits and load documentation, and spot quoting
 
-# Who you talk to, as a plain list. The seats you count evidence by are in config/seats.yml.
-interviewees: >-
-  brokerage operations leads, carrier sales reps, account managers, dispatchers, carrier
-  compliance staff, freight accounting, shippers' logistics managers, small carriers and factoring firms
-
 # Each finding is scoped so it is never stretched beyond what was said. Describe the three scope
-# fields for your market (the fourth, seat, comes from config/seats.yml). The keys stay the same.
+# fields for your market (the fourth, seat, is the person's role). The keys stay the same.
 scope:
   line: "the freight mode or workflow: full truckload, LTL, reefer, flatbed, drayage, carrier onboarding, payments..."
   party: "who the finding is about: broker, shipper, carrier, owner-operator, factoring company, load board, TMS vendor..."

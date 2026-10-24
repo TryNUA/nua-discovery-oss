@@ -1,5 +1,6 @@
 # Example config/seats.yml for P&C insurance (examples/insurance/).
-# Seat list: the role someone speaks from on a call. The line of business (workers' comp, commercial
+# Seed seats: the role someone speaks from on a call. Optional; the list grows from the calls
+# (see examples/blank/seats.yml). The line of business (workers' comp, commercial
 # auto, cyber...) goes in the claim scope, not the seat.
 
 # Underwriting

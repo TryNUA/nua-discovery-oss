@@ -1,6 +1,6 @@
 # Starting points
 
-Each folder holds a `domain.yml`, `seats.yml` and `entities.yml` to copy into `config/`. `nua init` asks which one to start from, or takes it as a flag:
+Each folder holds a `domain.yml`, `seats.yml` and `entities.yml` to copy into `config/`. Start from one with `nua init --example`:
 
 ```sh
 uv run python -m nua init                                # asks, starting from what is in config/ now

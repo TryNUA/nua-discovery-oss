@@ -59,7 +59,7 @@ from nua.beliefs import EMPTY_BELIEFS, BeliefsDoc, format_scope, parse_beliefs, 
 from nua.config import Config
 from nua.context import Ctx
 from nua.digest import apply_overrides, load_digests
-from nua.extract import ScopeReply, clean_text, fill
+from nua.extract import ScopeReply, clean_text, fill, merge_seats
 from nua.merge import span_overlap
 from nua.prompts import rollup as rollup_prompt
 from nua.schemas import Mapping, Objects, OptText, Reply, Text, Texts, strict_schema
@@ -893,7 +893,7 @@ def _ask_model(ctx: Ctx, world: _World, *, bootstrap: bool, week: str, new_calls
         "week": week, "today": world.today.isoformat(), "cap": BOOTSTRAP_CAP,
         "calls_total": len(world.digests), "calls_new": len(new_calls), "findings_total": len(world.findings),
         "entries": _entries_text(world), "decisions": _decisions_text(world),
-        "seat_counts": _seat_counts_text(world), "seats": ", ".join(world.config.seats) or "(no seat list)",
+        "seat_counts": _seat_counts_text(world), "seats": ", ".join(merge_seats(world.config.seats, (d.seat for d in world.digests))) or "(none yet)",
         "findings": _findings_text(world, themes, {d.call_id for d in new_calls}),
         "new_claims": _new_claims_text(world, new_calls), "rejected": _rejected_text(world),
         "open_proposals": _open_text(carried),

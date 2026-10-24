@@ -103,8 +103,7 @@ def test_config_round_trip_keeps_comments(root):
     client, _, _ = make(root)
     data = client.get("/api/config").json()
     assert data["examples"][0] == "blank"
-    domain = dict(data["domain"], company="Acme", team="founders", about="a startup", market="dental",
-                  exploring="billing", interviewees="dentists")
+    domain = dict(data["domain"], company="Acme", market="dental", exploring="billing")
     r = client.put("/api/config", json={"domain": domain})
     assert r.status_code == 200, r.text
     assert r.json()["changed"] == ["config/domain.yml"]
@@ -115,14 +114,30 @@ def test_config_round_trip_keeps_comments(root):
     assert client.put("/api/config", json={"domain": domain}).json()["changed"] == []
 
 
-def test_config_problems_come_back_and_nothing_is_written(root):
+def test_config_saves_what_is_valid_and_lists_malformed_fields(root):
     client, _, _ = make(root)
-    before = (root / "config" / "people.yml").read_text(encoding="utf-8")
-    r = client.put("/api/config", json={"people": {"alex": {"name": "Alex", "slack_id": "bad id"}}})
-    assert r.status_code == 422
-    assert any("slack_id" in p for p in r.json()["problems"])
-    assert (root / "config" / "people.yml").read_text(encoding="utf-8") == before
+    before = configio.load_setup(root)["people"]["alex"]
+    r = client.put("/api/config", json={"people": {"alex": {"name": "Alex R", "email": "not-an-email"}},
+                                        "pipeline": {"timezone": "Mars/Base"},
+                                        "domain": {"company": "Acme"}})
+    assert r.status_code == 200, r.text
+    fields = {p["field"] for p in r.json()["problems"]}
+    assert fields == {"people.alex.email", "pipeline.timezone"}
+    saved = configio.load_setup(root)
+    assert saved["people"]["alex"]["name"] == "Alex R"                 # the valid part saved
+    assert saved["people"]["alex"]["email"] == before["email"]          # the malformed one left as it was
+    assert saved["pipeline"]["timezone"] == "America/Los_Angeles"
+    assert saved["domain"]["company"] == "Acme"
     assert client.put("/api/config", json={}).status_code == 422
+
+
+def test_missing_required_values_never_block_a_save(root):
+    client, _, _ = make(root)
+    r = client.put("/api/config", json={"domain": {"company": "", "market": "dental", "exploring": ""},
+                                        "people": {}})
+    assert r.status_code == 200 and r.json()["problems"] == []
+    assert configio.load_setup(root)["domain"]["market"] == "dental"
+    assert client.get("/api/status").json()["steps"]["team"] is False
 
 
 def test_timezone_change_mirrors_into_existing_tfvars(root):
@@ -133,20 +148,39 @@ def test_timezone_change_mirrors_into_existing_tfvars(root):
     r = client.put("/api/config", json={"pipeline": dict(pipeline, timezone="Europe/Berlin")})
     assert r.status_code == 200, r.text
     assert 'time_zone = "Europe/Berlin"' in tfvars.read_text(encoding="utf-8")
-    assert client.put("/api/config", json={"pipeline": dict(pipeline, timezone="Mars/Base")}).status_code == 422
+    r = client.put("/api/config", json={"pipeline": dict(pipeline, timezone="Mars/Base")})
+    assert [p["field"] for p in r.json()["problems"]] == ["pipeline.timezone"]
+    assert 'time_zone = "Europe/Berlin"' in tfvars.read_text(encoding="utf-8")
 
 
-def test_example_preview_and_apply(root):
+def test_seats_are_an_optional_seed_list(root):
     client, _, _ = make(root)
-    preview = client.get("/api/examples/freight-brokerage").json()
-    assert preview["domain"]["company"] and preview["seats"]
-    assert configio.load_setup(root)["domain"]["company"] == ""        # preview writes nothing
-    r = client.post("/api/examples/freight-brokerage/apply")
-    assert r.status_code == 200
-    assert "config/domain.yml" in r.json()["changed"]
-    assert r.json()["setup"]["domain"]["company"] == preview["domain"]["company"]
-    assert client.get("/api/examples/nope").status_code == 404
-    assert client.post("/api/examples/..%2F..%2Fetc/apply").status_code in (404, 405)
+    assert client.put("/api/config", json={"seats": ["head of operations", "other"]}).status_code == 200
+    assert configio.load_setup(root)["seats"] == ["head of operations", "other"]
+    assert client.put("/api/config", json={"seats": []}).status_code == 200
+    assert configio.load_setup(root)["seats"] == []
+    r = client.put("/api/config", json={"seats": ["a", "A", ""]})
+    assert [p["field"] for p in r.json()["problems"]] == ["seats"]
+    assert configio.load_setup(root)["seats"] == ["a"]
+
+
+def test_team_step_needs_domain_people_and_the_gemini_key_but_no_internal_domain(root):
+    client, _, _ = make(root)
+    assert client.get("/api/status").json()["steps"]["team"] is False
+    data = client.get("/api/config").json()
+    assert "gmail.com" in data["personal_domains"]
+    domain = dict(data["domain"], company="Acme", market="dental", exploring="billing")
+    pipeline = dict(data["pipeline"], internal_email_domains=[])
+    assert client.put("/api/config", json={"domain": domain, "pipeline": pipeline}).status_code == 200
+    assert client.get("/api/status").json()["steps"]["team"] is False
+    client.put("/api/env", json={"values": {"GEMINI_API_KEY": "g"}})
+    assert client.get("/api/status").json()["steps"]["team"] is True
+
+
+def test_example_api_is_gone(root):
+    client, _, _ = make(root)
+    assert client.get("/api/examples/freight-brokerage").status_code == 404
+    assert client.post("/api/examples/freight-brokerage/apply").status_code == 404
 
 
 # ---------- .env ----------
@@ -168,11 +202,16 @@ def test_env_is_write_only(root):
 def test_env_refuses_unknown_keys_bad_values_and_ignores_empty_boxes(root):
     client, _, _ = make(root)
     client.put("/api/env", json={"values": {"GEMINI_API_KEY": SECRET}})
-    for values in ({"PATH": "/tmp"}, {"GITHUB_APP_PRIVATE_KEY": "x"}, {"GEMINI_API_KEY": "a\nb"},
-                   {"SLACK_BOT_TOKEN": "not-a-bot-token"}, {"CIRCLEBACK_API_KEY_NOBODY": "x"}):
-        assert client.put("/api/env", json={"values": values}).status_code == 422, values
+    for key, value in (("PATH", "/tmp"), ("GITHUB_APP_PRIVATE_KEY", "x"), ("GEMINI_API_KEY", "a\nb"),
+                       ("SLACK_BOT_TOKEN", "not-a-bot-token"), ("CIRCLEBACK_API_KEY_NOBODY", "x")):
+        r = client.put("/api/env", json={"values": {key: value, "OPENAI_API_KEY": "sk-ok"}})
+        assert r.status_code == 200
+        assert [p["field"] for p in r.json()["problems"]] == [f"env.{key}"], key
+        assert r.json()["written"] == ["OPENAI_API_KEY"]              # the valid key still saved
+    env = (root / ".env").read_text(encoding="utf-8")
+    assert "PATH=/tmp" not in env and "not-a-bot-token" not in env and f"GEMINI_API_KEY={SECRET}" in env
     r = client.put("/api/env", json={"values": {"GEMINI_API_KEY": "  ", "CIRCLEBACK_API_KEY_ALEX": "cb_1"}})
-    assert r.status_code == 200
+    assert r.status_code == 200 and r.json()["problems"] == []
     env = (root / ".env").read_text(encoding="utf-8")
     assert f"GEMINI_API_KEY={SECRET}" in env and "CIRCLEBACK_API_KEY_ALEX=cb_1" in env
 
@@ -214,9 +253,15 @@ def test_deploy_settings_write_tfvars_and_hide_example_values(root):
                                     {"repo_branch": 'main"\nx = 1'}])
 def test_deploy_settings_are_validated(root, fields):
     client, _, _ = make(root)
-    r = client.put("/api/deploy", json={"cloud": "gcp", "fields": fields})
-    assert r.status_code == 422, fields
-    assert not (root / server.GCP_TFVARS).exists()
+    r = client.put("/api/deploy", json={"cloud": "gcp", "fields": {**fields, "monthly_budget_usd": 40}
+                                        if "monthly_budget_usd" not in fields else fields})
+    assert r.status_code == 200
+    (key,) = fields
+    assert [p["field"] for p in r.json()["problems"]] == [f"fields.{key}"]
+    text = (root / server.GCP_TFVARS).read_text(encoding="utf-8")
+    assert server.read_tfvars(root / server.GCP_TFVARS).get(key) != fields[key]    # the bad value is not written
+    if key != "monthly_budget_usd":
+        assert "monthly_budget_usd = 40" in text                       # the rest is
 
 
 @pytest.mark.skipif(not (ROOT / server.AWS_TF_DIR).is_dir(), reason="no infra/aws in this checkout")
@@ -252,8 +297,11 @@ def test_receiver_from_project_number_and_pasted_url(root):
     client.put("/api/deploy", json={"fields": {"project_id": "acme-discovery", "region": "us-west1"}})
     assert client.get("/api/receiver").json()["url"] == "https://nua-receiver-123456789.us-west1.run.app"
     client.put("/api/deploy", json={"receiver_url": "nua.example.dev/"})
-    assert client.get("/api/receiver").json() == {"url": "https://nua.example.dev", "source": "pasted", "how_to": ""}
-    assert client.put("/api/deploy", json={"receiver_url": "http://insecure.dev"}).status_code == 422
+    assert client.get("/api/receiver").json() == {"url": "https://nua.example.dev", "source": "pasted", "how_to": "",
+                                                  "detail": "pasted in step 3"}
+    r = client.put("/api/deploy", json={"receiver_url": "http://insecure.dev"})
+    assert [p["field"] for p in r.json()["problems"]] == ["receiver_url"]
+    assert client.get("/api/receiver").json()["url"] == "https://nua.example.dev"
 
 
 def test_slack_link_needs_a_receiver(root):
@@ -361,6 +409,7 @@ def test_checks_go_green_when_everything_is_in_place(root):
     assert out["deploy"]["command"] == "bash infra/bootstrap.sh --project acme-discovery --region us-west1"
     steps = client.get("/api/status").json()["steps"]
     assert all(steps.values()), steps
+    assert list(steps) == ["team", "recorder", "cloud", "github", "slack", "deploy", "golive"]
 
 
 def test_golive_saves_cutoff_and_schedules(root):
@@ -375,8 +424,12 @@ def test_golive_saves_cutoff_and_schedules(root):
     assert r.status_code == 200, r.text
     assert configio.load_setup(root)["pipeline"]["ingest_cutoff"] == "2026-11-02T09:00:00-05:00"
     assert server.read_tfvars(root / server.GCP_TFVARS)["schedules_on"] is True
-    assert client.put("/api/golive", json={"ingest_cutoff": "soon"}).status_code == 422
-    assert client.put("/api/golive", json={"schedules_on": "on"}).status_code == 422
+    r = client.put("/api/golive", json={"ingest_cutoff": "soon", "schedules_on": False})
+    assert [p["field"] for p in r.json()["problems"]] == ["pipeline.ingest_cutoff"]
+    assert server.read_tfvars(root / server.GCP_TFVARS)["schedules_on"] is False    # the valid part saved
+    assert configio.load_setup(root)["pipeline"]["ingest_cutoff"] == "2026-11-02T09:00:00-05:00"
+    r = client.put("/api/golive", json={"schedules_on": "on"})
+    assert [p["field"] for p in r.json()["problems"]] == ["schedules_on"]
     client.put("/api/golive", json={"ingest_cutoff": None})
     assert configio.load_setup(root)["pipeline"]["ingest_cutoff"] is None
 
@@ -394,3 +447,74 @@ def test_cli_wires_setup():
     args = cli.build_parser().parse_args(["setup", "--port", "9999", "--no-browser"])
     assert args.command == "setup" and args.port == 9999 and args.no_browser
     assert "setup" in cli.COMMANDS
+
+
+def test_status_marks_started_steps_and_receiver_says_where_its_url_came_from(root):
+    fakes = Fakes()
+    fakes.answers["gcloud projects describe acme-discovery"] = (0, "123456789")
+    client, _, _ = make(root, fakes)
+    status = client.get("/api/status").json()
+    assert status["started"]["slack"] is False
+    client.put("/api/env", json={"values": {"SLACK_BOT_TOKEN": "xoxb-1"}})
+    status = client.get("/api/status").json()
+    assert status["started"]["slack"] is True and status["steps"]["slack"] is False
+    client.put("/api/env", json={"values": {"SLACK_SIGNING_SECRET": "s"}})
+    status = client.get("/api/status").json()
+    assert status["steps"]["slack"] is True and status["started"]["slack"] is False
+    client.put("/api/deploy", json={"fields": {"project_id": "acme-discovery", "region": "us-west1"}})
+    r = client.get("/api/receiver").json()
+    assert r["source"] == "project" and "acme-discovery" in r["detail"] and "us-west1" in r["detail"]
+    client.put("/api/deploy", json={"receiver_url": "https://r.example.dev"})
+    assert client.get("/api/receiver").json()["detail"] == "pasted in step 3"
+
+
+def test_cloud_is_not_started_by_a_tfvars_copied_from_the_example(root):
+    tfvars = root / "infra/terraform/terraform.tfvars"
+    tfvars.write_text((root / "infra/terraform/terraform.tfvars.example").read_text()
+                      + '\ntime_zone = "Europe/London"\ncircleback_people = ["alex"]\n')
+    client, _, _ = make(root)
+    assert client.get("/api/status").json()["started"]["cloud"] is False
+    client.put("/api/deploy", json={"fields": {"billing_account": "ABCDEF-123456-ABCDEF"}})
+    assert client.get("/api/status").json()["started"]["cloud"] is True     # touched, project still missing
+    client.put("/api/deploy", json={"fields": {"project_id": "acme-discovery"}})
+    status = client.get("/api/status").json()
+    assert status["steps"]["cloud"] is True and status["started"]["cloud"] is False
+
+
+def test_github_default_name_comes_from_the_company(root):
+    client, _, _ = make(root)
+    domain = dict(client.get("/api/config").json()["domain"], company="Keel Labs", market="m", exploring="e")
+    client.put("/api/config", json={"domain": domain})
+    assert client.get("/api/github").json()["default_name"] == "keel-labs-nua-discovery"
+    client.put("/api/deploy", json={"receiver_url": "https://r.example.dev"})
+    r = client.post("/api/github/start", json={"repo": "keel/disc", "name": "x" * 35})
+    assert r.status_code == 422 and "34" in r.json()["problems"][0]
+
+
+def test_channels_without_a_staging_channel_save(root):
+    client, _, _ = make(root)
+    r = client.put("/api/config", json={"pipeline": {"channels": {"calls": "#c", "ops": "#o", "test": ""}}})
+    assert r.status_code == 200, r.text
+    assert r.json()["setup"]["pipeline"]["channels"]["test"] == ""
+
+
+@pytest.mark.skipif(not (ROOT / server.AWS_TF_DIR).is_dir(), reason="no infra/aws in this checkout")
+def test_aws_profile_is_saved_validated_and_used(root):
+    fakes = Fakes()
+    fakes.answers["aws sts get-caller-identity"] = (0, '{"Account": "123456789012"}')
+    client, setup, _ = make(root, fakes)
+    (root / "infra" / "aws" / "bootstrap.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    r = client.put("/api/deploy", json={"cloud": "aws", "aws_profile": "bad profile!"})
+    assert [p["field"] for p in r.json()["problems"]] == ["aws_profile"]
+    assert setup.state()["aws_profile"] == ""
+    r = client.put("/api/deploy", json={"cloud": "aws", "aws_profile": "keel-admin", "fields": {"region": "us-west-2"}})
+    assert r.json()["problems"] == [] and r.json()["aws_profile"] == "keel-admin"
+    assert setup.state()["aws_profile"] == "keel-admin"
+    out = client.get("/api/checks").json()
+    assert out["deploy"]["command"] == "AWS_PROFILE=keel-admin bash infra/aws/bootstrap.sh --region us-west-2"
+    sts = [c for c in fakes.commands if c[:3] == ["aws", "sts", "get-caller-identity"]]
+    assert sts and sts[-1][-2:] == ["--profile", "keel-admin"]
+    login = next(c for c in out["checks"] if c["id"] == "login:aws")
+    assert login["ok"] and "keel-admin" in login["detail"]
+    client.put("/api/deploy", json={"aws_profile": ""})
+    assert client.get("/api/checks").json()["deploy"]["command"].startswith("bash infra/aws/bootstrap.sh")

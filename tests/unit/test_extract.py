@@ -9,6 +9,8 @@ from nua import extract as ex
 from nua.llm import FakeLLM, LLMError
 from nua.prompts import extract as extract_prompt
 from nua.types import Attendee, Claim, ParsedTranscript, Quote, Turn
+from nua.parse import parse
+from conftest import fixture_text
 
 EM_DASH = chr(0x2014)
 
@@ -60,7 +62,7 @@ def reply(**overrides) -> dict:
             {"text": "Store camera footage cannot stand in for a field investigator",
              "quotes": [{"quote": "I don't think so.", "turns": ["T4"], "question_turn": "3",
                          "speaker": "Darius Kemp"}],
-             "scope": {"line": None, "party": None, "segment": "small commercial", "seat": "a seat nobody listed"},
+             "scope": {"line": None, "party": None, "segment": "small commercial", "seat": "A Seat  Nobody Listed"},
              "flags": {"hedged": False, "firsthand": False, "prompted": True}},
             {"text": "A finding with no quote", "quotes": [{"quote": "   ", "turns": [2], "question_turn": None,
                                                             "speaker": "Darius Kemp"}], "scope": {}, "flags": {}},
@@ -196,7 +198,7 @@ def test_reply_is_normalized(ctx):
     assert first.scope.line == "general liability" and first.scope.segment is None
     assert first.flags.firsthand is True
     assert second.quotes[0].turns == [4] and second.quotes[0].question_turn == 3
-    assert second.scope.seat == "other"                       # unknown seat goes to "other"
+    assert second.scope.seat == "a seat nobody listed"        # a new seat is kept, lower-cased
     assert second.flags.prompted is True
     assert [f.direction for f in r.follow_ups] == ["we_owe"]
     assert r.mentions["firms"] == ["Guidewire", "Duck Creek"]  # aliases folded and deduped
@@ -322,3 +324,39 @@ def test_model_step_timeout_outlasts_one_provider_call():
     from nua.runner import BUDGET_SECONDS
     # extraction and verdicts (each at most one step) fit the task budget with room to spare
     assert providers.MAX_CALL_SECONDS < ex.MODEL_STEP_SECONDS < BUDGET_SECONDS / 2
+
+
+# ---------- self-building seats ----------
+
+def test_seat_matches_known_seats_else_keeps_a_normalized_new_one(ctx):
+    known = ["Claims Manager", "other"]
+    assert ex._seat(ctx.config, "  claims   manager ", known) == "Claims Manager"
+    assert ex._seat(ctx.config, "OTHER", known) == "other"
+    assert ex._seat(ctx.config, "Head of Operations", known) == "head of operations"
+    assert ex._seat(ctx.config, "x" * 100, known) == "x" * ex.SEAT_MAX_CHARS
+    assert ex._seat(ctx.config, "unknown", known) is None
+    assert ex._seat(ctx.config, "underwriter") == "underwriter"      # default: the seed list
+
+
+def test_known_seats_are_the_seed_then_every_digested_call(ctx):
+    ctx.config.seats = ["underwriter", "other"]
+    ctx.repo.write("calls.csv", "call_id,status,seat\n"
+                                "a,digested,head of operations\nb,digested,Underwriter\n"
+                                "c,internal,ignored stub seat\nd,digested,\ne,digested,head of operations\n")
+    assert ex.known_seats(ctx) == ["underwriter", "other", "head of operations"]
+    values = ex.extract_values(ctx, parse("tests/fixtures/darius-kemp.md", fixture_text("darius-kemp")))
+    assert "- head of operations" in values["seats"]
+
+
+def test_known_seats_without_calls_csv_read_the_digests(ctx):
+    from nua.digest import write_digest
+    from nua.types import Digest
+
+    ctx.config.seats = []
+    write_digest(ctx.repo, Digest(call_id="2026-10-01_jo-park", transcript="transcripts/x.md", status="digested",
+                                  origin="live", date="2026-10-01", date_source="api", prompt_version="v1",
+                                  seat="dispatcher"))
+    assert ex.known_seats(ctx) == ["dispatcher"]
+    ctx.config.seats, values = [], ex.extract_values(ctx, parse("tests/fixtures/darius-kemp.md",
+                                                                fixture_text("darius-kemp")), seats=[])
+    assert values["seats"] == "(none yet)"

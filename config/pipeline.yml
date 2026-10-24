@@ -22,8 +22,7 @@ ingest_cutoff: null
 reprocess_stale: false
 timezone: America/Los_Angeles
 # Your team's email domains: a call where every attendee is on one of these is internal and gets no digest.
-internal_email_domains:
-  - acme.dev
+internal_email_domains: []
 cost_cap_usd_per_task: 5.0
 
 channels:

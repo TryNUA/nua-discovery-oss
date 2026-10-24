@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Check, Copy, ExternalLink, Plus, X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
-import { problemsOf } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -13,37 +12,7 @@ import { Label } from "@/components/ui/label";
 import { List, ListItem } from "@/components/ui/list";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { Text } from "@/components/ui/text";
-import { useToast } from "@/components/ui/toast";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-
-/** Runs a save, keeps its problems for the step to show, toasts on success. */
-export function useSave() {
-  const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-  const [problems, setProblems] = useState<string[]>([]);
-  function run<T>(work: () => Promise<T>, done?: (result: T) => string | void): Promise<T | undefined> {
-    setSaving(true);
-    setProblems([]);
-    return work()
-      .then((result) => {
-        const message = done ? done(result) : undefined;
-        toast({ type: "success", title: "Saved", description: message || undefined });
-        return result;
-      })
-      .catch((e) => {
-        setProblems(problemsOf(e));
-        return undefined;
-      })
-      .finally(() => setSaving(false));
-  }
-  return { saving, problems, setProblems, run };
-}
-
-export function changedText(changed?: string[], notes?: string[]): string {
-  const all = [...(changed || []), ...(notes || [])];
-  if (!all.length) return "Nothing changed on disk.";
-  return `Wrote ${all.join(", ")}`;
-}
 
 export function Problems({ problems }: { problems: string[] }) {
   if (!problems.length) return null;
@@ -110,6 +79,9 @@ type FieldProps = {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  /** A problem from the last save; shown under the field. */
+  error?: string;
+  onBlur?: () => void;
 };
 
 export function Field({
@@ -125,6 +97,8 @@ export function Field({
   required,
   disabled,
   className,
+  error,
+  onBlur,
 }: FieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5 min-w-0", className)}>
@@ -139,6 +113,9 @@ export function Field({
           value={value}
           placeholder={placeholder}
           disabled={disabled}
+          error={Boolean(error)}
+          aria-invalid={Boolean(error)}
+          onBlur={onBlur}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
@@ -149,9 +126,17 @@ export function Field({
           value={value}
           placeholder={placeholder}
           disabled={disabled}
+          error={Boolean(error)}
+          aria-invalid={Boolean(error)}
+          onBlur={onBlur}
           className={cn(mono && "font-mono placeholder:font-sans")}
           onChange={(e) => onChange(e.target.value)}
         />
+      )}
+      {error && (
+        <Text size="xs" color="danger" leading="relaxed">
+          {error}
+        </Text>
       )}
       {hint && (
         <Text size="xs" color="faint" leading="relaxed">
@@ -171,6 +156,8 @@ export function SecretField({
   onChange,
   hint,
   required,
+  error,
+  onBlur,
 }: {
   name: string;
   label: string;
@@ -179,6 +166,9 @@ export function SecretField({
   onChange: (v: string) => void;
   hint?: React.ReactNode;
   required?: boolean;
+  error?: string;
+  /** Secrets save on blur (and on Next), never while typing. */
+  onBlur?: () => void;
 }) {
   const id = `secret-${name}`;
   return (
@@ -199,8 +189,16 @@ export function SecretField({
         value={value}
         placeholder={isSet ? "Set. Paste a new value to replace it" : "Paste the value"}
         className="font-mono placeholder:font-sans"
+        error={Boolean(error)}
+        aria-invalid={Boolean(error)}
+        onBlur={onBlur}
         onChange={(e) => onChange(e.target.value)}
       />
+      {error && (
+        <Text size="xs" color="danger">
+          {error}
+        </Text>
+      )}
       <Text size="xs" color="faint" leading="relaxed">
         <Text size="xs" mono color="faint">
           {name}
@@ -270,10 +268,12 @@ export function LinkButton({
   href,
   children,
   variant = "secondary",
+  external = true,
 }: {
   href: string;
   children: React.ReactNode;
   variant?: "primary" | "secondary" | "outline";
+  external?: boolean;
 }) {
   const styles = {
     primary: "bg-accent text-accent-solid-text border-accent hover:opacity-90",
@@ -283,8 +283,8 @@ export function LinkButton({
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noreferrer noopener"
+      target={external ? "_blank" : undefined}
+      rel={external ? "noreferrer noopener" : undefined}
       className={cn(
         "inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-sm border",
         "font-sans text-sm font-medium whitespace-nowrap no-underline",
@@ -294,7 +294,7 @@ export function LinkButton({
       )}
     >
       {children}
-      <ExternalLink className="w-3.5 h-3.5" />
+      {external && <ExternalLink className="w-3.5 h-3.5" />}
     </a>
   );
 }

@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hmac
 import json
+import mimetypes
 import re
 import secrets
 import shutil
@@ -34,10 +35,11 @@ from typing import Any, Callable
 from zoneinfo import available_timezones
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, Response
 
 from nua.setup import configio, github_app, receiver, slack
+from nua.setup import people as teammates
 
 STATIC = Path(__file__).resolve().parent / "static"
 STATE_FILE = ".nua-setup.json"
@@ -84,6 +86,8 @@ _BILLING = re.compile(r"^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$")
 _BRANCH = re.compile(r"^[\w./-]{1,100}$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _ENV_KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
+# An AWS CLI profile name as it may appear in ~/.aws/config; also safe to put in a shell command.
+_PROFILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+=,@-]{0,63}$")
 
 
 # ---------- local files ----------
@@ -139,6 +143,11 @@ def _is_set(value: str | None) -> bool:
     return bool(value and value.strip())
 
 
+# Copied into tfvars by other steps (time zone from step 1, Circleback people from step 2), so they never
+# count as the user having started the Cloud step.
+MIRRORED_TFVARS = frozenset({"time_zone", "circleback_people"})
+
+
 def _example_or_empty(key: str, value: Any) -> bool:
     if value is None or (isinstance(value, str) and not value.strip()):
         return True
@@ -185,7 +194,8 @@ class Setup:
             cloud = "aws" if (self.root / AWS_TFVARS).is_file() and not (self.root / GCP_TFVARS).is_file() else "gcp"
         recorder = data.get("recorder") if data.get("recorder") in RECORDERS else None
         return {"cloud": cloud, "recorder": recorder, "repo": data.get("repo") or "",
-                "receiver_url": data.get("receiver_url") or ""}
+                "receiver_url": data.get("receiver_url") or "",
+                "aws_profile": data.get("aws_profile") if _PROFILE.match(str(data.get("aws_profile") or "")) else ""}
 
     def save_state(self, **changes: Any) -> dict:
         data = self.state()
@@ -203,7 +213,8 @@ class Setup:
     # ----- config -----
 
     def config(self) -> dict:
-        return configio.load_setup(self.root)
+        """load_setup, plus the personal mail domains the page never suggests as internal."""
+        return {**configio.load_setup(self.root), "personal_domains": list(teammates.PERSONAL_DOMAINS)}
 
     def save_config(self, body: dict) -> dict:
         data = {k: body[k] for k in ("domain", "people", "seats", "pipeline") if k in body}
@@ -216,11 +227,13 @@ class Setup:
             data["pipeline"] = {k: v for k, v in data["pipeline"].items()
                                 if k in ("timezone", "internal_email_domains", "channels", "ingest_cutoff")}
         try:
-            changed = configio.save_setup(self.root, data)
+            changed, problems = configio.save_setup_partial(self.root, data)
         except configio.SetupError as e:
             raise ApiError(422, e.problems)
         notes = self._mirror_timezone(self.config()["pipeline"]["timezone"]) if "pipeline" in data else []
-        return {"changed": [self._rel(p) for p in changed], "notes": notes, "setup": self.config()}
+        # missing values never block a save; malformed ones are left out and listed by field
+        return {"changed": [self._rel(p) for p in changed], "notes": notes, "problems": problems,
+                "setup": self.config()}
 
     def _mirror_timezone(self, zone: str) -> list[str]:
         """Keep time_zone in every tfvars that exists equal to config/pipeline.yml, as the bootstraps expect."""
@@ -231,19 +244,6 @@ class Setup:
                 github_app.write_tfvars(path, {"time_zone": zone})
                 notes.append(f"{rel.as_posix()}: time_zone = \"{zone}\"")
         return notes
-
-    def apply_example(self, name: str) -> dict:
-        try:
-            changed = configio.apply_example(self.root, name)
-        except ValueError as e:
-            raise ApiError(404, [str(e)])
-        return {"changed": [self._rel(p) for p in changed], "setup": self.config()}
-
-    def example(self, name: str) -> dict:
-        try:
-            return configio.example_setup(self.root, name)
-        except ValueError as e:
-            raise ApiError(404, [str(e)])
 
     # ----- .env -----
 
@@ -286,28 +286,31 @@ class Setup:
         for p in people:
             allowed |= {person_var(CIRCLEBACK_PREFIXES[0], p), person_var(CIRCLEBACK_PREFIXES[1], p)}
         problems, clean = [], {}
+
+        def bad(key: Any, message: str) -> None:
+            problems.append({"field": f"env.{key}", "message": message})
+
         for k, v in values.items():
             if not isinstance(k, str) or not _ENV_KEY.match(k) or k not in allowed:
-                problems.append(f"{k}: not a key this page writes")
+                bad(k, f"{k}: not a key this page writes")
                 continue
             if not isinstance(v, str):
-                problems.append(f"{k}: expected text")
+                bad(k, "expected text")
                 continue
             v = v.strip()
             if not v:
                 continue                    # an empty box means "leave as is"
             if "\n" in v or "\r" in v:
-                problems.append(f"{k}: must be one line")
+                bad(k, "must be one line")
                 continue
             if k == "SLACK_BOT_TOKEN" and not v.startswith("xoxb-"):
-                problems.append("SLACK_BOT_TOKEN: the Bot User OAuth Token starts with xoxb-")
+                bad(k, "the Bot User OAuth Token starts with xoxb-")
                 continue
             clean[k] = v
-        if problems:
-            raise ApiError(422, problems)
+        # every valid key is written even when another one is refused
         if clean:
             github_app.write_env(self.root / ".env", clean)
-        return {**self.env_status(), "written": sorted(clean)}
+        return {**self.env_status(), "written": sorted(clean), "problems": problems}
 
     # ----- deploy settings -----
 
@@ -326,6 +329,7 @@ class Setup:
                 "tfvars_path": self._rel(path), "exists": path.is_file(), "fields": fields,
                 "read_only": list(READ_ONLY_FIELDS), "timezone": self.config()["pipeline"]["timezone"],
                 "people": list(self.config()["people"]), "receiver_url_override": st["receiver_url"],
+                "aws_profile": st["aws_profile"],
                 "aws_ready": (self.root / AWS_TF_DIR).is_dir()}
 
     def save_deploy(self, body: dict) -> dict:
@@ -334,42 +338,54 @@ class Setup:
             raise ApiError(422, ["cloud must be gcp or aws"])
         if cloud == "aws" and not (self.root / AWS_TF_DIR).is_dir():
             raise ApiError(422, ["infra/aws/terraform is missing from this checkout; pull the latest code or pick GCP"])
+        fields = body.get("fields") or {}
+        if not isinstance(fields, dict):
+            raise ApiError(422, ["fields must be a mapping"])
+        # each valid piece is saved; a malformed one is left out and listed by field
+        problems: list[dict] = []
+
+        def bad(field: str, message: str) -> None:
+            problems.append({"field": field, "message": message})
+
         recorder = body.get("recorder")
         if recorder is not None and recorder not in RECORDERS:
-            raise ApiError(422, ["recorder must be granola, circleback or both"])
+            bad("recorder", "recorder must be granola, circleback or both")
+            recorder = None
         repo = body.get("repo")
         if repo is not None and repo and not _REPO.match(repo.strip()):
-            raise ApiError(422, ["repo must be owner/name"])
+            bad("repo", "repo must be owner/name, e.g. acme/discovery")
+            repo = None
+        profile = body.get("aws_profile")
+        if profile is not None:
+            profile = str(profile).strip()
+            if profile and not _PROFILE.match(profile):
+                bad("aws_profile", "a profile name: letters, digits and _ . + = , @ - (as in ~/.aws/config)")
+                profile = None
         override = body.get("receiver_url")
+        save_override = "receiver_url" in body
         if override:
             try:
                 override = receiver.normalize(override)
             except ValueError as e:
-                raise ApiError(422, [str(e)])
-        fields = body.get("fields") or {}
-        if not isinstance(fields, dict):
-            raise ApiError(422, ["fields must be a mapping"])
+                bad("receiver_url", str(e))
+                save_override = False
         allowed = TFVARS_FIELDS[cloud]
         people = list(self.config()["people"])
-        problems, clean = [], {}
+        clean = {}
         for k, v in fields.items():
             if k not in allowed or k in READ_ONLY_FIELDS or k == "time_zone":
                 continue
             problem, value = _check_field(cloud, k, allowed[k], v, people)
             if problem:
-                problems.append(problem)
+                bad(f"fields.{k}", problem.split(": ", 1)[-1])
             else:
                 clean[k] = value
         if recorder == "granola":
             clean["circleback_people"] = []
-        elif recorder in ("circleback", "both") and "circleback_people" in clean and not clean["circleback_people"]:
-            problems.append("circleback_people: pick at least one person who records on Circleback")
         if repo:
             clean["repo_slug"] = repo.strip()
-        if problems:
-            raise ApiError(422, problems)
         self.save_state(cloud=cloud, recorder=recorder, repo=(repo or "").strip() or None,
-                        receiver_url=(override or "") if "receiver_url" in body else None)
+                        receiver_url=(override or "") if save_override else None, aws_profile=profile)
         clean["time_zone"] = self.config()["pipeline"]["timezone"]
         target = self.tfvars_path(cloud)
         if not target.is_file():
@@ -381,7 +397,7 @@ class Setup:
                     clean[k] = other[k]
         github_app.write_tfvars(target, clean)
         self._receiver_cache = None
-        return self.deploy()
+        return {**self.deploy(), "problems": problems}
 
     # ----- receiver URL -----
 
@@ -393,8 +409,26 @@ class Setup:
         if self._receiver_cache and self._receiver_cache[1] == key and now - self._receiver_cache[0] < RECEIVER_CACHE_SECONDS:
             return self._receiver_cache[2]
         out = self._find_receiver(st)
+        out["detail"] = self._receiver_detail(st, out)
         self._receiver_cache = (now, key, out)
         return out
+
+    def _aws_env(self) -> list[str]:
+        """`env AWS_PROFILE=<profile>` before a command, when a profile is set (terraform reads its S3 state)."""
+        profile = self.state()["aws_profile"]
+        return ["env", f"AWS_PROFILE={profile}"] if profile else []
+
+    def _receiver_detail(self, st: dict, found: dict) -> str:
+        """Where the URL came from, in a few words for the page."""
+        if found["source"] == "pasted":
+            return "pasted in step 3"
+        if found["source"] == "terraform":
+            return "from the Terraform output receiver_url"
+        if found["source"] == "project":
+            values = read_tfvars(self.tfvars_path("gcp"))
+            return (f"from project {values.get('project_id')} (its project number) and region "
+                    f"{values.get('region') or receiver.DEFAULT_REGION}")
+        return ""
 
     def _find_receiver(self, st: dict) -> dict:
         if st["receiver_url"]:
@@ -402,12 +436,12 @@ class Setup:
         if st["cloud"] == "aws":
             tf = self.root / AWS_TF_DIR
             if (tf / ".terraform").is_dir() and self.which("terraform"):
-                code, out = self.run(["terraform", f"-chdir={tf}", "output", "-raw", "receiver_url"], 20)
+                code, out = self.run(self._aws_env() + ["terraform", f"-chdir={tf}", "output", "-raw", "receiver_url"], 20)
                 if code == 0 and out.startswith("https://") and "\n" not in out:
                     return {"url": out, "source": "terraform", "how_to": ""}
             return {"url": None, "source": None,
                     "how_to": "On AWS the receiver URL exists after the first deploy. Run the deploy command in "
-                              "step 9; it prints the URL. Or paste it in step 5."}
+                              "step 6; it prints the URL. Or paste it in step 3."}
         tf = self.root / receiver.TF_DIR
         if (tf / ".terraform").is_dir() and self.which("terraform"):
             code, out = self.run(["terraform", f"-chdir={tf}", "output", "-raw", "receiver_url"], 20)
@@ -423,9 +457,9 @@ class Setup:
                         "source": "project", "how_to": ""}
             return {"url": None, "source": None,
                     "how_to": f"gcloud cannot see project {project} yet. Log in to gcloud, or run the first "
-                              "bootstrap (step 9) to create it, then reload. Or paste the receiver URL in step 5."}
+                              "bootstrap (step 6) to create it, then reload. Or paste the receiver URL in step 3."}
         return {"url": None, "source": None,
-                "how_to": "Set your GCP project and region in step 5 (and log in to gcloud), or paste the "
+                "how_to": "Set your GCP project and region in step 3 (and log in to gcloud), or paste the "
                           "receiver URL there."}
 
     # ----- Slack -----
@@ -456,6 +490,7 @@ class Setup:
                         if not _example_or_empty("github_app_installation_id", tf.get("github_app_installation_id")) else ""}
         if out["saved"]["slug"] and "install_url" not in out:
             out["install_url"] = github_app.install_url(out["saved"]["slug"])
+        out["default_name"] = github_app.default_app_name(self.config()["domain"]["company"])
         return out
 
     def github_start(self, body: dict) -> dict:
@@ -463,7 +498,9 @@ class Setup:
         if not _REPO.match(repo):
             raise ApiError(422, ["repo must be owner/name, e.g. acme/discovery"])
         owner = (body.get("owner") or "").strip() or repo.split("/")[0]
-        name = (body.get("name") or "").strip() or f"{repo.split('/')[1]}-bot"[:34]
+        name = (body.get("name") or "").strip() or github_app.default_app_name(self.config()["domain"]["company"])
+        if len(name) > github_app.MAX_APP_NAME:
+            raise ApiError(422, [f"the app name can be at most {github_app.MAX_APP_NAME} characters (a GitHub limit)"])
         url = self.receiver()["url"]
         if not url:
             raise ApiError(409, ["no receiver URL yet. " + self.receiver()["how_to"]])
@@ -541,21 +578,20 @@ class Setup:
         return out
 
     def save_golive(self, body: dict) -> dict:
-        notes = []
+        notes, problems = [], []
         if "ingest_cutoff" in body:
-            try:
-                changed = configio.save_setup(self.root, {"pipeline": {"ingest_cutoff": body["ingest_cutoff"] or None}})
-            except configio.SetupError as e:
-                raise ApiError(422, e.problems)
+            changed, problems = configio.save_setup_partial(
+                self.root, {"pipeline": {"ingest_cutoff": body["ingest_cutoff"] or None}})
             notes += [self._rel(p) for p in changed]
         if "schedules_on" in body:
             if not isinstance(body["schedules_on"], bool):
-                raise ApiError(422, ["schedules_on must be true or false"])
-            path = self.tfvars_path()
-            if body["schedules_on"] != bool(read_tfvars(path).get("schedules_on")):
-                github_app.write_tfvars(path, {"schedules_on": body["schedules_on"]})
-                notes.append(self._rel(path))
-        return {**self.golive(), "changed": notes}
+                problems.append({"field": "schedules_on", "message": "schedules_on must be true or false"})
+            else:
+                path = self.tfvars_path()
+                if body["schedules_on"] != bool(read_tfvars(path).get("schedules_on")):
+                    github_app.write_tfvars(path, {"schedules_on": body["schedules_on"]})
+                    notes.append(self._rel(path))
+        return {**self.golive(), "changed": notes, "problems": problems}
 
     # ----- checks -----
 
@@ -565,7 +601,8 @@ class Setup:
         if st["cloud"] == "aws":
             if (self.root / "infra" / "aws" / "bootstrap.sh").is_file():
                 region = tf.get("region") or "us-west-2"
-                return {"command": f"bash infra/aws/bootstrap.sh --region {region}",
+                prefix = f"AWS_PROFILE={st['aws_profile']} " if st["aws_profile"] else ""
+                return {"command": f"{prefix}bash infra/aws/bootstrap.sh --region {region}",
                         "doc": "docs/self-hosting-aws.md" if (self.root / "docs" / "self-hosting-aws.md").is_file() else ""}
             return {"command": "",
                     "doc": "docs/self-hosting-aws.md" if (self.root / "docs" / "self-hosting-aws.md").is_file() else "",
@@ -608,15 +645,20 @@ class Setup:
                 return [a, b]
             if not self.which("aws"):
                 return [_check("login:aws", "AWS CLI logged in", False, "Install the AWS CLI first")]
-            code, ident = self.run(["aws", "sts", "get-caller-identity", "--output", "json"], CHECK_TIMEOUT)
+            profile = ["--profile", st["aws_profile"]] if st["aws_profile"] else []
+            code, ident = self.run(["aws", "sts", "get-caller-identity", "--output", "json", *profile], CHECK_TIMEOUT)
             detail = ""
             if code == 0:
                 try:
                     detail = f"account {json.loads(ident).get('Account', '')}"
                 except ValueError:
                     pass
-            return [_check("login:aws", "AWS CLI logged in", code == 0, "" if code == 0 else
-                           "Run: aws configure, or aws sso login (with AWS_PROFILE set)", detail)]
+            if st["aws_profile"]:
+                fix = (f"Run: aws sso login --profile {st['aws_profile']} (SSO), or check the profile name in step 3")
+                detail = f"{detail}, profile {st['aws_profile']}".lstrip(", ") if detail else f"profile {st['aws_profile']}"
+            else:
+                fix = "Sign in (step 3 has the steps), or set the AWS profile in step 3"
+            return [_check("login:aws", "AWS CLI logged in", code == 0, "" if code == 0 else fix, detail)]
 
         def health() -> list[dict]:
             url = self.receiver()["url"]
@@ -634,14 +676,14 @@ class Setup:
             setup = self.config()
             problems = configio.validate_setup(setup)
             out.append(_check("config", "Config valid (config/*.yml)", not problems,
-                              "" if not problems else "Fix in steps 1 to 3: " + problems[0], ""))
+                              "" if not problems else "Fix in step 1: " + problems[0], ""))
             env = self.env()
             needed = self.needed_keys()
             missing = [k for group in needed.values() for k in group
                        if not _is_set(env.get(k)) and k != "GRANOLA_WEBHOOK_SECRET"
                        and not k.startswith(CIRCLEBACK_PREFIXES[1])]
             if not st["recorder"]:
-                out.append(_check("env", ".env keys present", False, "Pick a recorder in step 4"))
+                out.append(_check("env", ".env keys present", False, "Pick a recorder in step 2"))
             else:
                 out.append(_check("env", ".env keys present", not missing,
                                   "" if not missing else "Missing: " + ", ".join(missing)))
@@ -653,28 +695,38 @@ class Setup:
             out.append(_check("tfvars", "terraform.tfvars complete", tf_path.is_file() and not tf_missing,
                               "" if tf_path.is_file() and not tf_missing else
                               ("Missing: " + ", ".join(tf_missing) if tf_path.is_file() else
-                               f"No {self._rel(tf_path)} yet: save step 5")))
+                               f"No {self._rel(tf_path)} yet: save step 3")))
             out += healthy.result()
             secrets_needed = [k for k in needed["recorder"] if k == "GRANOLA_WEBHOOK_SECRET"
                               or k.startswith(CIRCLEBACK_PREFIXES[1])]
             unsigned = [k for k in secrets_needed if not _is_set(env.get(k))]
             if not st["recorder"]:
-                signing_fix = "Pick a recorder in step 4"
+                signing_fix = "Pick a recorder in step 2"
             elif unsigned:
-                signing_fix = ("After the first deploy: create the webhook (step 10), paste its secret, run the deploy "
+                signing_fix = ("After the first deploy: create the webhook (step 7), paste its secret, run the deploy "
                                f"command again. Missing: {', '.join(unsigned)}")
             else:
                 signing_fix = ""
             out.append(_check("signing", "Recorder webhook signing secrets in .env", not signing_fix, signing_fix))
             cutoff = setup["pipeline"]["ingest_cutoff"]
-            out.append(_check("cutoff", "ingest_cutoff set", bool(cutoff), "" if cutoff else "Set it in step 10",
+            out.append(_check("cutoff", "ingest_cutoff set", bool(cutoff), "" if cutoff else "Set it in step 7",
                               cutoff or ""))
             on = bool(tf.get("schedules_on"))
             out.append(_check("schedules", "schedules_on", on, "" if on else
-                              "Turn it on in step 10, then run the deploy command once more"))
+                              "Turn it on in step 7, then run the deploy command once more"))
         return {"cloud": cloud, "checks": out, "deploy": self.deploy_command()}
 
     # ----- progress -----
+
+    def _cloud_touched(self, tf: dict) -> bool:
+        """Whether any Cloud-step value differs from the shipped example, so a tfvars file created from
+        the example by another step's save does not show the step as started."""
+        path = self.tfvars_path()
+        if not path.is_file():
+            return False
+        example_path = path.parent / "terraform.tfvars.example"
+        example = read_tfvars(example_path) if example_path.is_file() else {}
+        return any(v != example.get(k) for k, v in tf.items() if k not in MIRRORED_TFVARS)
 
     def status(self) -> dict:
         """Which steps look done, from files only (no subprocess)."""
@@ -687,21 +739,30 @@ class Setup:
         rec_ok = bool(st["recorder"]) and all(_is_set(env.get(k)) for k in needed["recorder"]
                                                if k != "GRANOLA_WEBHOOK_SECRET" and not k.startswith(CIRCLEBACK_PREFIXES[1]))
         cloud_need = ["project_id", "region"] if st["cloud"] == "gcp" else ["region"]
-        return {"steps": {
-            "discovery": not configio.validate_setup({"domain": d}),
-            "team": bool(setup["people"]) and not configio.validate_setup({"people": setup["people"],
-                                                                           "pipeline": setup["pipeline"]})
-                    and bool(setup["pipeline"]["internal_email_domains"]),
-            "seats": bool(setup["seats"]),
+        # some but not all of a step's parts: the stepper shows these as in progress
+        started = {
+            "team": bool(d.get("company") or setup["people"] or _is_set(env.get("GEMINI_API_KEY"))),
+            "recorder": bool(st["recorder"]),
+            "cloud": self._cloud_touched(tf),
+            "github": _is_set(env.get("GITHUB_APP_PRIVATE_KEY")),
+            "slack": any(_is_set(env.get(k)) for k in SLACK_KEYS),
+            "deploy": False,
+            "golive": bool(setup["pipeline"]["ingest_cutoff"]) or bool(tf.get("schedules_on")),
+        }
+        steps = {
+            # step 1: what you research, who you are, and the one model key every run needs
+            "team": not configio.validate_setup({"domain": d, "people": setup["people"], "pipeline": setup["pipeline"]})
+                    and bool(setup["people"]) and _is_set(env.get("GEMINI_API_KEY")),
             "recorder": rec_ok,
             "cloud": self.tfvars_path().is_file() and not any(_example_or_empty(k, tf.get(k)) for k in cloud_need),
             "github": _is_set(env.get("GITHUB_APP_PRIVATE_KEY"))
                       and not _example_or_empty("github_app_installation_id", tf.get("github_app_installation_id")),
             "slack": all(_is_set(env.get(k)) for k in SLACK_KEYS),
-            "models": _is_set(env.get("GEMINI_API_KEY")),
             "deploy": bool(self.last_health),
             "golive": bool(setup["pipeline"]["ingest_cutoff"]) and bool(tf.get("schedules_on")),
-        }, "cloud": st["cloud"], "recorder": st["recorder"], "root": str(self.root)}
+        }
+        return {"steps": steps, "started": {k: v and not steps[k] for k, v in started.items()},
+                "cloud": st["cloud"], "recorder": st["recorder"], "root": str(self.root)}
 
     # ----- helpers -----
 
@@ -849,14 +910,6 @@ def create_app(setup: Setup, token: str, port: int, static_dir: Path = STATIC) -
     async def put_config(request: Request):
         return setup.save_config(await body(request))
 
-    @app.get("/api/examples/{name}")
-    def get_example(name: str):
-        return setup.example(name)
-
-    @app.post("/api/examples/{name}/apply")
-    def post_example(name: str):
-        return setup.apply_example(name)
-
     @app.get("/api/timezones")
     def timezones():
         return sorted(z for z in available_timezones() if "/" in z and not z.startswith(("Etc/", "SystemV/"))) + ["UTC"]
@@ -913,23 +966,35 @@ def create_app(setup: Setup, token: str, port: int, static_dir: Path = STATIC) -
     def api_404(rest: str):
         raise ApiError(404, [f"no such endpoint /api/{rest}"])
 
+    # The page is read once here, so a server left running keeps serving the page it shipped with: a
+    # rebuild on disk would otherwise send new page code to old API code, and the page breaks.
+    files = _snapshot(static_dir)
+
     @app.get("/{path:path}")
     def static(path: str):
-        base = static_dir.resolve()
-        target = (base / path).resolve() if path else base / "index.html"
-        if target.is_dir():
-            target = target / "index.html"
-        if not target.is_relative_to(base) or not target.is_file():
-            index = base / "index.html"
-            if not index.is_file():
+        key = path.strip("/")
+        if key in files:
+            target = key
+        elif f"{key}/index.html".lstrip("/") in files:
+            target = f"{key}/index.html".lstrip("/")
+        else:
+            if "index.html" not in files:
                 return Response("The setup page is not built: see setup-ui/README.md.", status_code=500,
                                 media_type="text/plain")
-            if path and "." in path.rsplit("/", 1)[-1]:
+            if key and "." in key.rsplit("/", 1)[-1]:
                 return Response("not found", status_code=404, media_type="text/plain")
-            target = index
-        return FileResponse(target)
+            target = "index.html"
+        return Response(files[target], media_type=mimetypes.guess_type(target)[0] or "application/octet-stream")
 
     return app
+
+
+def _snapshot(static_dir: Path) -> dict[str, bytes]:
+    """Every file under `static_dir` by its relative posix path; nothing outside it can be named."""
+    base = static_dir.resolve()
+    if not base.is_dir():
+        return {}
+    return {p.relative_to(base).as_posix(): p.read_bytes() for p in base.rglob("*") if p.is_file()}
 
 
 # ---------- `nua setup` ----------

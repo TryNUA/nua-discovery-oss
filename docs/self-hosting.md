@@ -52,7 +52,7 @@ You need `git`, [`uv`](https://docs.astral.sh/uv/), [`gcloud`](https://cloud.goo
    uv run python -m nua slack-manifest
    ```
 
-   Copy **OAuth & Permissions > Bot User OAuth Token** to `SLACK_BOT_TOKEN` and **Basic Information > Signing Secret** to `SLACK_SIGNING_SECRET` in `.env`. Create your three channels and invite the bot ([step 3](#step-3-slack-app)). If Slack refuses the events URL because the receiver is not up yet, run it with `--no-events` and turn Event Subscriptions on after the next step ([step 9](#step-9-slack-urls-and-the-github-webhook)).
+   Copy **OAuth & Permissions > Bot User OAuth Token** to `SLACK_BOT_TOKEN` and **Basic Information > Signing Secret** to `SLACK_SIGNING_SECRET` in `.env`. Create your briefs and ops channels and invite the bot ([step 3](#step-3-slack-app)). If Slack refuses the events URL because the receiver is not up yet, run it with `--no-events` and turn Event Subscriptions on after the next step ([step 9](#step-9-slack-urls-and-the-github-webhook)).
 
 6. **Keys in `.env`.** Add `GEMINI_API_KEY` and your recorder's API keys ([step 5](#step-5-fill-in-env)). Leave the recorder's signing secret empty for now. With Circleback, list the people in `circleback_people` in `terraform.tfvars`.
 
@@ -156,9 +156,9 @@ and `git pull` before you push.
 
 `uv run python -m nua init` asks for these and writes them, starting blank or from an example market (`nua init --example insurance` or `freight-brokerage`, see `examples/`). It keeps the files' comments, and writes `time_zone` into `infra/terraform/terraform.tfvars` when that file exists. To do it by hand, edit and commit these, as in the [local quickstart](local-quickstart.md#4-describe-your-discovery):
 
-- `config/domain.yml`: company, team, market, what you are exploring, who you interview, scope fields, roles, `bot_name`.
+- `config/domain.yml`: `company`, `market` (who you sell to) and `exploring`. Optional: scope fields, roles, `bot_name`.
 - `config/people.yml`: everyone who runs calls. `email` must be the address their calls are recorded under. `slack_id` (optional) shows their first name on belief changes made from Slack.
-- `config/seats.yml`: the seats you count evidence by.
+- `config/seats.yml`: optional seed seats; the list grows from the calls.
 - `config/pipeline.yml`: `internal_email_domains` (your company domain), `channels` if you want other channel names. Leave `ingest_cutoff: null` for now.
 - `timezone` in `config/pipeline.yml` (default `America/Los_Angeles`): the IANA time zone your team works in, such as `Europe/London` or `America/New_York`. Call-id dates, `ingested_at` stamps, a date-only `ingest_cutoff` and every 'today' are read in it. Set it before your first call is processed: changing it later does not rename existing call ids.
 - `config/entities.yml`: starts empty. Add company and product names the transcripts garble as you find them.
@@ -201,12 +201,12 @@ Call that `RECEIVER_URL` below. `terraform output receiver_url` prints the same 
 
 ## Step 3. Slack app
 
-1. Create three channels: one for briefs, roll-ups and belief notices (default `#discovery-calls`), one for errors, Re-run buttons and sweep catches (`#discovery-ops`) and one for staging (`#discovery-test`). They may be private. Any names work: put yours under `channels` in `config/pipeline.yml`.
+1. Create two channels: one for briefs, roll-ups and belief notices (default `#discovery-calls`) and one for errors, Re-run buttons and sweep catches (`#discovery-ops`). They may be private. Any names work: put yours under `channels` in `config/pipeline.yml`. A third, staging channel (`channels.test`, default `#discovery-test`) is optional and only used with `slack_test_mode`.
 2. Run `uv run python -m nua slack-manifest` and open the link it prints: Slack's create page opens with the manifest filled in for your receiver and `bot_name`. Pick the workspace and **Create**. By hand instead: open [docs/slack-app-manifest.yml](slack-app-manifest.yml), replace both `RECEIVER_URL` placeholders with your receiver host (no `https://` twice), change the names if you changed `bot_name`, and paste it at [api.slack.com/apps](https://api.slack.com/apps) > **Create New App** > **From a manifest**.
 3. Slack cannot verify the events URL until the receiver is deployed. If it refuses to create the app because of that, run `nua slack-manifest --no-events` (or delete the `event_subscriptions` block), create the app, and add it in step 9.
 4. **Install to Workspace**. Copy **OAuth & Permissions > Bot User OAuth Token** (`xoxb-...`) to `SLACK_BOT_TOKEN`.
 5. Copy **Basic Information > App Credentials > Signing Secret** to `SLACK_SIGNING_SECRET`.
-6. Invite the bot to each channel: `/invite @Nua Discovery` in all three, and any channel where people should be able to ask it things.
+6. Invite the bot to each channel: `/invite @Nua Discovery` in both (and the staging channel if you use one), and any channel where people should be able to ask it things.
 
 Bot scopes the code needs (already in the manifest): `chat:write`, `channels:read`, `groups:read`, `channels:history`, `groups:history`, `app_mentions:read`. If you ever change scopes, Slack asks you to **reinstall** the app; until you do, the new scopes do not apply.
 
@@ -342,15 +342,20 @@ In Granola (workspace admin):
 - Leave transcript auto-deletion off. Granola keeps no audio.
 - The Granola iOS app saves notes to your oldest workspace; leave older workspaces or move those notes.
 
-Create the webhook with the workspace key. The signing secret is shown **once** in the response:
+Create the webhook in the Granola desktop app (Business or Enterprise plan):
+
+1. **Settings > Connectors > Webhooks > Set up a webhook.**
+2. Choose the Team space notes and the events `note.generated` and `note.access_granted` (`note.edited` is optional: a resumed note that got longer becomes a new version).
+3. Endpoint URL: `https://RECEIVER_URL/ingest/granola`.
+4. Create the webhook and copy its signing secret (starts with `whsec_`). It is shown only once.
+
+Or create it with the API and the workspace key; the signing secret is in the response, shown once:
 
 ```sh
 curl -X POST https://public-api.granola.ai/v1/webhook-endpoints \
   -H "Authorization: Bearer <workspace key>" -H "Content-Type: application/json" \
   -d '{"url": "https://RECEIVER_URL/ingest/granola", "scopes": ["workspace"], "events": ["note.generated", "note.access_granted"]}'
 ```
-
-The receiver also handles `note.edited` (a resumed note that got longer becomes a new version) if you add it to `events`.
 
 Put the `whsec_...` secret in `.env` as `GRANOLA_WEBHOOK_SECRET` and run `bash infra/bootstrap.sh`: it pushes the secret and restarts the services. By hand, push it and start a new receiver revision so the running service reads it (a running instance keeps the secret value it started with):
 
@@ -428,7 +433,7 @@ In the GitHub App settings, check the webhook is **Active**, the URL is `https:/
 | Slack bot | `@Nua Discovery list beliefs`, then a real question. The answer ends with `read N/N digests` |
 | Terraform | `terraform plan` shows no changes, even after code deploys |
 
-While testing you can set `slack_test_mode = true` in `terraform.tfvars` and apply: every Slack post then goes to `#discovery-test`. Set it back to `false` and apply to go live.
+Optional, for staging: set `slack_test_mode = true` in `terraform.tfvars` and apply, and every Slack post goes to `channels.test` (default `#discovery-test`; create it and invite the bot). With `channels.test` empty, test mode refuses to run rather than post to a real channel. Set it back to `false` and apply to go live.
 
 ## Day 2
 

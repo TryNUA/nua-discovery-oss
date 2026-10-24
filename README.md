@@ -56,7 +56,7 @@ All names, firms and quotes above are made up.
 - **Weekly roll-up.** Mondays, findings are grouped into themes and the bot proposes new beliefs, promotions, splits and retirements, each with Approve / Edit / Reject.
 - **Pre-call prep.** Ask Claude Code or Codex to prep you for a call; it writes up to 5 questions tagged with the beliefs they test, and the pipeline reports afterwards which ones got answered.
 - **Repo is the source of truth.** Transcripts, digests, beliefs and indexes are plain markdown and CSV in your private GitHub repo. Any AI agent with a clone can answer from it (`AGENTS.md` tells it how).
-- **Any market.** `config/domain.yml` describes your company, market and interviewees; every prompt reads it. `uv run python -m nua init` fills it in by asking a few questions, starting blank or from an example market in `examples/` (P&C insurance, freight brokerage).
+- **Any market.** Three lines in `config/domain.yml` (company, who you sell to, what you are exploring) brief every prompt. Seats build themselves from the calls. `uv run python -m nua init` fills it in by asking a few questions, starting blank or from an example market in `examples/` (P&C insurance, freight brokerage).
 
 ## How it works
 
@@ -111,8 +111,8 @@ Everything specific to one team or market is in config and prompts, not code:
 
 | To change | Edit |
 |---|---|
-| Company, market, problem areas, who you interview, scope fields, roles, bot name | `config/domain.yml`. Every prompt reads it |
-| The seats you count evidence by (examples in `examples/*/seats.yml`) | `config/seats.yml` |
+| Company, who you sell to, what you are exploring (optional: scope fields, roles, bot name) | `config/domain.yml`. Every prompt reads it |
+| Seed seats, optional: the list grows from the calls (examples in `examples/*/seats.yml`) | `config/seats.yml` |
 | Starting points and example markets | `examples/` (`nua init --example <name>`) |
 | Time zone for call dates and schedules | `timezone` in `config/pipeline.yml` (default `America/Los_Angeles`); on the cloud, set Terraform's `time_zone` to match |
 | Your team, their emails and Slack ids | `config/people.yml` |

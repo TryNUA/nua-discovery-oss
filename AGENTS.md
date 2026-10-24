@@ -4,7 +4,7 @@ Instructions for any AI agent working in this repo (Claude Code, Codex, Cursor o
 
 ## What this repo is
 
-A knowledge base of one team's customer discovery calls, built so that an AI can answer questions across **every** call rather than a retrieved handful. What the discovery is about lives in `config/domain.yml`: the company, the team, the market, the problem areas being explored and who gets interviewed. Read it before you answer anything; it gives you the vocabulary and what counts as relevant. The people on the team are in `config/people.yml`, the seats (roles interviewees speak from) in `config/seats.yml`.
+A knowledge base of one team's customer discovery calls, built so that an AI can answer questions across **every** call rather than a retrieved handful. What the discovery is about lives in `config/domain.yml`: the company, who it sells to (`market`) and what it is exploring. Read it before you answer anything; it gives you the vocabulary and what counts as relevant. The people on the team are in `config/people.yml`, the seats (roles interviewees speak from) in `calls.csv`, seeded by `config/seats.yml`.
 
 When the pipeline is deployed, calls arrive from the call recorder (Granola, or Circleback) through a GCP pipeline that commits the transcript, writes a digest and posts a brief to Slack. The bot commits to `main` all the time, so run `git pull` before you answer anything.
 
@@ -59,7 +59,7 @@ planned_date: YYYY-MM-DD
 contact: <full name; ask if you only have a first name>
 firm: <firm>
 attendee_email: <if known>
-seat: <from config/seats.yml>
+seat: <a seat already in calls.csv, or a short new role>
 caller: <a person key from config/people.yml>
 ---
 

@@ -49,13 +49,13 @@ Anthropic and OpenAI keys are optional. See [Choosing models](self-hosting.md#ch
 
 ## 4. Describe your discovery
 
-A few files tell the models what you are doing. `config/` ships as commented templates with empty values, so fill them in before your first real run. The quickest way is `nua init`, which asks a handful of questions and writes them for you:
+Three answers tell the models what you are doing: your company, who you sell to, and what you are exploring. `config/` ships as commented templates with empty values, so fill them in before your first real run. The quickest way is `nua init`:
 
 ```sh
 uv run python -m nua init
 ```
 
-It asks where to start (what `config/` holds now, the blank templates, or an example market), your company name, the team, one line on what you are deciding, the market, the problem areas you are exploring, who you interview, your teammates, your internal email domains, your time zone and Slack channel names, and optionally your seats. It checks every answer (a time zone must be an IANA name such as `America/New_York`), writes nothing until all of them pass, and keeps the comments in the files. Every answer is also a flag, so it runs unattended too:
+It asks six things: company, who you sell to, what you are exploring, your teammates, your internal email domains and your time zone (an IANA name such as `America/New_York`). It writes nothing until every answer passes, and keeps the comments in the files. Every answer is also a flag (`--company`, `--market`, `--exploring`, `--person`, `--internal-domain`, `--timezone`; channels and seed seats are flags only), so it runs unattended too:
 
 ```sh
 uv run python -m nua init --example freight-brokerage --company "Halyard Labs" \
@@ -68,9 +68,9 @@ What it writes, if you would rather edit by hand:
 
 | File | What to put in it |
 |---|---|
-| `config/domain.yml` | Your company name, the team, one line on what you are deciding, the market, the problem areas you are exploring, who you interview, what the three scope fields (`line`, `party`, `segment`) mean in your market, the `roles` a contact can play relative to what you build (keep `expert` and `competitor`), examples of institution labels, and the Slack bot's display name. Every prompt reads this file. Empty values fall back to vague neutral defaults: fine for `--fake`, not for real calls. |
+| `config/domain.yml` | `company`, `market` (who you sell to) and `exploring` (the problems or questions you want answered). Optional: what the scope fields (`line`, `party`, `segment`) mean in your market, the `roles` a contact can play (keep `expert` and `competitor`), institution label examples and the bot's display name. Every prompt reads this file. |
 | `config/people.yml` | Everyone who runs calls. The key (`alex`) is used in prep files and change requests; `email` is the address their calls are recorded under. |
-| `config/seats.yml` | The roles your interviewees speak from (for example "head of finance", "IT buyer", "end user"), plus `other`. Evidence for each belief is counted by seat, so keep the list short and distinct. |
+| `config/seats.yml` | Optional seed seats. Seats build themselves: each call reuses a seat already heard or adds a new short role such as "head of finance". Seed it to steer the names; to merge two seats, add the one to keep here and correct calls in `config/overrides.yml`. |
 | `config/pipeline.yml` | `internal_email_domains`: your company's email domain. A call where every attendee is on it (or is someone in `people.yml`) is treated as internal and gets no digest. Also `timezone` and `channels`. |
 
 `config/entities.yml` is an optional alias map for names that speech recognition garbles. It starts empty (`{}`); add entries as you spot them.

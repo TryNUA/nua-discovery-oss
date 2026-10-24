@@ -353,9 +353,9 @@ def test_instructions_carry_the_hard_rules():
 
 def test_allowed_identity(env):
     cfg = env.config
-    cfg.people[1].github_login = "SunnyGH"
+    cfg.people[1].github_login = "SamGH"
     assert mcp_mod.allowed_identity(cfg, "Alex.Rivera@Gmail.com", None) == "alex"
-    assert mcp_mod.allowed_identity(cfg, None, "sunnygh") == "sam"
+    assert mcp_mod.allowed_identity(cfg, None, "samgh") == "sam"
     assert mcp_mod.allowed_identity(cfg, "stranger@example.com", "stranger") is None
     assert mcp_mod.allowed_identity(cfg, None, None) is None
     assert mcp_mod.allowed_identity(cfg, "", "") is None
@@ -366,9 +366,9 @@ def test_signed_in_account_must_be_a_cofounder(env, monkeypatch):
     auth = StaticTokenVerifier(tokens={})
     people = env.repo.root / "config" / "people.yml"
     people.write_text(people.read_text().replace("github_login: null\n  circleback_key_name: circleback-key-sam",
-                                                 "github_login: sunnygh\n  circleback_key_name: circleback-key-sam"))
+                                                 "github_login: samgh\n  circleback_key_name: circleback-key-sam"))
     env.config = config_mod.load(env.repo.root)
-    assert env.config.person("sam").github_login == "sunnygh"
+    assert env.config.person("sam").github_login == "samgh"
     server = _server(env, auth=auth)
 
     monkeypatch.setattr(mcp_mod, "_access_token", lambda: None)
@@ -389,7 +389,7 @@ def test_signed_in_account_must_be_a_cofounder(env, monkeypatch):
         claims={"email": "alex.rivera@gmail.com", "email_verified": True}))
     assert call_json(server, "list_calls")["matched"] == 3
 
-    monkeypatch.setattr(mcp_mod, "_access_token", lambda: types.SimpleNamespace(claims={"login": "SunnyGH"}))
+    monkeypatch.setattr(mcp_mod, "_access_token", lambda: types.SimpleNamespace(claims={"login": "SamGH"}))
     out = call_json(server, "request_change", {"action": "retire", "target": "B-004", "reason": "no support"})
     assert yaml.safe_load((env.repo.root / out["request_file"]).read_text())["requested_by"] == "sam"
 

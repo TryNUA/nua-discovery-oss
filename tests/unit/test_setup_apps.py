@@ -262,3 +262,11 @@ def test_cli_wires_both_commands():
     assert parser.parse_args(["github-app", "--repo", "a/b"]).command == "github-app"
     assert {"slack-manifest", "github-app"} <= set(cli.COMMANDS)
     assert Path(github_app.__file__).parent.name == "setup"
+
+
+def test_default_app_name_fits_githubs_limit():
+    assert github_app.default_app_name("Keel Labs") == "keel-labs-nua-discovery"
+    assert github_app.default_app_name("Ünïcode Co.") == "unicode-co-nua-discovery"
+    assert github_app.default_app_name("") == "nua-discovery"
+    long = github_app.default_app_name("A very long company name incorporated worldwide")
+    assert len(long) <= github_app.MAX_APP_NAME == 34 and long.endswith("-nua-discovery") and "--" not in long

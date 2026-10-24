@@ -44,13 +44,12 @@ DEFAULT_ROLES: dict[str, str] = {
 @dataclass
 class Domain:
     """What the discovery is about (config/domain.yml). Every prompt reads it, so nothing in the code is
-    tied to one market. Missing keys fall back to these neutral defaults."""
+    tied to one market. company, market and exploring are what a team fills in; the rest are optional.
+    Missing keys fall back to these neutral defaults, and keys this version no longer reads (team, about,
+    interviewees) are ignored."""
     company: str = "our company"
-    team: str = "founders"
-    about: str = "an early-stage startup deciding what to build"
-    market: str = "our market"
+    market: str = "our market"            # who you sell to, a short phrase
     exploring: str = "the problems our customers have and what they would pay to solve"
-    interviewees: str = "potential customers, users, buyers and industry experts"
     scope: dict[str, str] = field(default_factory=lambda: {
         "line": "the product line, workflow or use case the finding is about",
         "party": "the kind of organization the finding is about",
@@ -182,7 +181,7 @@ def _load_domain(raw: dict) -> Domain:
     base = Domain()
     if not isinstance(raw, dict):
         return base
-    for name in ("company", "team", "about", "market", "exploring", "interviewees", "institution_examples", "bot_name"):
+    for name in ("company", "market", "exploring", "institution_examples", "bot_name"):
         value = raw.get(name)
         if isinstance(value, str) and value.strip():
             setattr(base, name, " ".join(value.split()))

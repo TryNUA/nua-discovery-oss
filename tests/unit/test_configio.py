@@ -91,6 +91,27 @@ def test_load_setup_shape(root):
     assert set(data["pipeline"]) == {"timezone", "internal_email_domains", "channels", "ingest_cutoff"}
 
 
+def test_only_company_market_and_exploring_are_required(root):
+    data = configio.load_setup(root)
+    assert set(data["domain"]) == {"company", "market", "exploring", "scope", "roles", "institution_examples",
+                                   "bot_name"}
+    problems = configio.validate_setup(data)
+    assert sorted(problems) == sorted(f"config/domain.yml: {k} is empty" for k in ("company", "market", "exploring"))
+    data["domain"].update(company="Zephyr", market="dental practices", exploring="billing")
+    assert configio.validate_setup(data) == []
+
+
+def test_old_domain_keys_load_and_survive_a_save(root):
+    path = root / "config" / "domain.yml"
+    path.write_text(path.read_text() + "team: cofounders\nabout: an old line\ninterviewees: dentists\n")
+    data = configio.load_setup(root)
+    assert "team" not in data["domain"] and "interviewees" not in data["domain"]
+    data["domain"].update(company="Zephyr", market="dental practices", exploring="billing")
+    configio.save_setup(root, data)
+    cfg = config_mod.load(root)
+    assert cfg.domain.company == "Zephyr" and not hasattr(cfg.domain, "team")
+
+
 def test_blank_setup_names_what_is_missing(root):
     problems = configio.validate_setup(configio.load_setup(root))
     assert "config/domain.yml: company is empty" in problems
@@ -143,7 +164,7 @@ def test_save_keeps_comments_and_reads_back(root):
     pipeline = (root / "config" / "pipeline.yml").read_text()
     assert "# Model roles." in pipeline and "timezone: America/Chicago" in pipeline
     assert 'calls: "#halyard-calls"' in pipeline and "  - halyard.dev\n" in pipeline
-    assert (root / "config" / "seats.yml").read_text().startswith("# Seat list:")
+    assert (root / "config" / "seats.yml").read_text().startswith("# Seats:")
     assert "# Your team:" in (root / "config" / "people.yml").read_text()
 
     cfg = config_mod.load(root)
@@ -214,9 +235,8 @@ def test_init_example_yes(root, capsys):
 
 
 def test_init_flags_answer_every_question(root, capsys):
-    code = init(root, "--example", "blank", "--yes", "--company", "Zephyr", "--team", "founders",
-                "--about", "two founders deciding what to build for dental practices", "--market", "dental practices",
-                "--exploring", "scheduling and insurance billing", "--interviewees", "office managers and dentists",
+    code = init(root, "--example", "blank", "--yes", "--company", "Zephyr", "--market", "dental practices",
+                "--exploring", "scheduling and insurance billing",
                 "--person", "zoe,Zoe Park,zoe@zephyr.dev,U0ZOE1", "--person", "ian,Ian Ross,",
                 "--internal-domain", "zephyr.dev", "--timezone", "Europe/London", "--calls-channel", "#zephyr-calls",
                 "--seat", "office manager", "--seat", "other")
@@ -253,29 +273,85 @@ def test_init_writes_time_zone_into_the_gcp_tfvars(root, capsys):
 
 
 def test_init_interactive(root, monkeypatch, capsys):
+    configio.save_setup(root, {"pipeline": {"internal_email_domains": []}})
     answers = [
-        "freight-brokerage",          # start from
-        "Halyard", "", "", "", "", "",  # company, then keep the example's other domain answers
+        "Halyard", "", "",            # company, then keep the example's market and exploring
         "n",                          # do not keep the team
-        "maya", "Maya Ortiz", "maya@halyard.dev", "",
+        "Maya Ortiz", "maya.ortiz@halyard.dev",
+        "Sam Chen", "",               # the email follows Maya's pattern
+        "Jordan Lee", "jordan@gmail.com",
         "",                           # no more teammates
-        "halyard.dev, halyard.io",    # internal domains
+        "",                           # internal domains: take the suggestion
         "Not/AZone", "America/Chicago",  # a bad zone is asked again
-        "", "", "",                   # channels
-        "y",                          # keep the example's seats
     ]
-    assert init(root, answers=answers, monkeypatch=monkeypatch) == 0
+    assert init(root, "--example", "freight-brokerage", answers=answers, monkeypatch=monkeypatch) == 0
     out = capsys.readouterr().out
     assert "not an IANA time zone" in out
     cfg = config_mod.load(root)
-    assert cfg.domain.company == "Halyard" and cfg.domain.market == "freight brokerage"
-    assert [p.key for p in cfg.people] == ["maya"]
-    assert cfg.pipeline.internal_email_domains == ["halyard.dev", "halyard.io"]
+    assert cfg.domain.company == "Halyard" and cfg.domain.market == "mid-size freight brokerages"
+    # Sam and Jordan are already in people.yml, so they keep their keys (and their place in the file)
+    assert {p.key: p.email for p in cfg.people} == {"maya": "maya.ortiz@halyard.dev", "sam": "sam.chen@halyard.dev",
+                                                    "jordan": "jordan@gmail.com"}
+    assert cfg.pipeline.internal_email_domains == ["halyard.dev"]
     assert cfg.pipeline.timezone == "America/Chicago"
     assert "dispatcher / track and trace" in cfg.seats
+
+
+def test_init_person_flags_derive_keys(root, capsys):
+    configio.save_setup(root, {"pipeline": {"internal_email_domains": []}})
+    code = init(root, "--example", "insurance", "--yes", "--person", "Ana Ruiz,ana@ruiz.dev",
+                "--person", "Ana Cole,ana.cole@gmail.com", "--person", "Bo Li")
+    assert code == 0, capsys.readouterr()
+    cfg = config_mod.load(root)
+    assert [(p.key, p.email) for p in cfg.people] == [("ana", "ana@ruiz.dev"), ("anac", "ana.cole@gmail.com"),
+                                                      ("bo", None)]
+    assert cfg.pipeline.internal_email_domains == ["ruiz.dev"]      # gmail.com is never suggested
 
 
 def test_configio_and_init_have_no_em_dash():
     for rel in ("nua/setup/configio.py", "nua/setup/init.py", "examples/README.md",
                 "examples/insurance/README.md", "examples/freight-brokerage/README.md"):
         assert EM_DASH not in (ROOT / rel).read_text(encoding="utf-8"), rel
+
+
+def test_the_staging_channel_is_optional(root):
+    data = configio.load_setup(root)
+    assert data["pipeline"]["channels"]["test"] == "#discovery-test"         # default when the key is missing
+    channels = {"calls": "#c", "ops": "#o", "test": ""}
+    assert not configio.validate_setup({"pipeline": {"channels": channels}})
+    assert not configio.validate_setup({"pipeline": {"channels": {"calls": "#c", "ops": "#o"}}})
+    assert configio.validate_setup({"pipeline": {"channels": {"calls": "#c", "ops": "#o", "test": "no spaces"}}})
+    configio.save_setup(root, {"pipeline": {"channels": channels}})
+    assert configio.load_setup(root)["pipeline"]["channels"] == channels
+    assert config_mod.load(root).pipeline.channels["test"] == ""
+
+
+def test_test_mode_without_a_staging_channel_refuses_to_run(root, monkeypatch):
+    from nua import settings
+    configio.save_setup(root, {"pipeline": {"channels": {"calls": "#c", "ops": "#o", "test": ""}}})
+    cfg = config_mod.load(root)
+    monkeypatch.setenv("NUA_SLACK_TEST", "1")
+    with pytest.raises(settings.SettingsError, match="channels.test"):
+        settings._test_channels(cfg)
+    configio.save_setup(root, {"pipeline": {"channels": {"calls": "#c", "ops": "#o", "test": "#stage"}}})
+    cfg = config_mod.load(root)
+    settings._test_channels(cfg)
+    assert set(cfg.pipeline.channels.values()) == {"#stage"}
+
+
+def test_partial_save_writes_around_missing_and_malformed_values(root):
+    data = {"domain": {"company": "", "market": "dental", "roles": {"bad id!": "x"}},
+            "people": {"maya": {"name": "Maya", "email": "nope"}, "Bad Key": {"name": "X"}},
+            "pipeline": {"timezone": "Europe/Paris", "internal_email_domains": ["ok.dev", "not a domain"],
+                         "channels": {"calls": "#same", "ops": "#same"}, "ingest_cutoff": "soon"}}
+    with pytest.raises(configio.SetupError):
+        configio.save_setup(root, data)                                   # strict mode is unchanged
+    changed, problems = configio.save_setup_partial(root, data)
+    assert {p["field"] for p in problems} == {"domain.roles", "people.maya.email", "people.Bad Key.key",
+                                              "pipeline.internal_email_domains", "pipeline.channels.ops",
+                                              "pipeline.ingest_cutoff"}
+    saved = configio.load_setup(root)
+    assert saved["domain"]["market"] == "dental" and saved["pipeline"]["timezone"] == "Europe/Paris"
+    assert saved["people"] == {"maya": {"name": "Maya", "email": None, "slack_id": None, "github_login": None,
+                                        "circleback_key_name": "circleback-key-maya"}}
+    assert saved["pipeline"]["channels"]["calls"] == "#same" and saved["pipeline"]["channels"]["ops"] != "#same"

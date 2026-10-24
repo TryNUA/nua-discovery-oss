@@ -659,8 +659,10 @@ def render_open_questions(digests: list[Digest], beliefs: BeliefsDoc, statuses: 
         heard = {i["seat"] for i in s.supports + s.contradicts + s.scope_mismatch if i["seat"]}
         unheard = [seat for seat in config.seats if seat not in heard and seat not in SKIP_UNHEARD_SEATS]
         lines += [f"### {e.id} {_oneline(e.statement)}", "",
-                  f"- contradicted by: {', '.join(_seat_counts(_pressure_items(e, s.contradicts)))}",
-                  f"- not yet heard from: {', '.join(unheard) if unheard else 'none'}", ""]
+                  f"- contradicted by: {', '.join(_seat_counts(_pressure_items(e, s.contradicts)))}"]
+        if config.seats:      # only the seed list in config/seats.yml says which seats should be heard
+            lines.append(f"- not yet heard from: {', '.join(unheard) if unheard else 'none'}")
+        lines.append("")
 
     generated = _clean("\n".join(lines).rstrip() + "\n")
     return f"{generated}\n## Manual\n\n{MANUAL_START}{_manual_section(existing)}{MANUAL_END}\n"

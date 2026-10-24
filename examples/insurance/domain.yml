@@ -6,26 +6,16 @@
 # Your company, as the models should name it ("Acme people are the interviewers").
 company: Acme
 
-# Who reads the findings and decides. Used as "the <team>" in prompts and briefs.
-team: cofounders
-
-# One line: who you are and what you are deciding.
-about: a three-person startup deciding what to build for property and casualty insurance
-
-# The market in a few words, for short mentions ("discovery calls with people in <market>").
+# Who you sell to, in a few words.
 market: P&C insurance
 
-# The problem areas you are exploring. Findings are judged against these.
+# The problems or questions you want your calls to answer. Findings are judged against these.
 exploring: >-
   claims (including video and footage as evidence, and fraud), underwriting (submission intake and
   research) and actuarial pricing and reserving
 
-# Who you talk to, as a plain list. The seats you count evidence by are in config/seats.yml.
-interviewees: >-
-  underwriters, actuaries, risk engineers, adjusters, claims leaders, SIU, brokers, MGAs and reinsurers
-
 # Each finding is scoped so it is never stretched beyond what was said. Describe the three scope
-# fields for your market (the fourth, seat, comes from config/seats.yml). The keys stay the same.
+# fields for your market (the fourth, seat, is the person's role). The keys stay the same.
 scope:
   line: "the line of business or coverage: workers' comp, commercial auto, cyber, habitational GL, travel, property..."
   party: "who the finding is about: carrier, MGA, broker, insured, TPA, reinsurer, vendor..."

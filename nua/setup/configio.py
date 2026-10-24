@@ -2,10 +2,11 @@
 
 The setup is one plain dict (see `load_setup`) spread over four hand-maintained files:
 
-- `config/domain.yml`: every key (company, team, about, market, exploring, interviewees, scope, roles,
-  institution_examples, bot_name).
+- `config/domain.yml`: company, market and exploring (required), and the optional scope, roles,
+  institution_examples and bot_name. Keys older versions wrote (team, about, interviewees) are left as they
+  are and ignored.
 - `config/people.yml`: the team, by person key.
-- `config/seats.yml`: the seat list.
+- `config/seats.yml`: the optional seed seats (the known seats also grow from every digested call).
 - `config/pipeline.yml`: only `timezone`, `internal_email_domains`, `channels` and `ingest_cutoff`. Models,
   thresholds and everything else are left as written.
 
@@ -35,13 +36,15 @@ EXAMPLES = "examples"
 BLANK = "blank"
 EXAMPLE_FILES = ("domain.yml", "seats.yml", "entities.yml")
 
-DOMAIN_TEXT = ("company", "team", "about", "market", "exploring", "interviewees", "institution_examples",
-               "bot_name")
-REQUIRED_DOMAIN = ("company", "team", "about", "market", "exploring", "interviewees")
+DOMAIN_TEXT = ("company", "market", "exploring", "institution_examples", "bot_name")
+REQUIRED_DOMAIN = ("company", "market", "exploring")
 SCOPE_KEYS = ("line", "party", "segment")
 KEEP_ROLES = ("expert", "competitor")       # nua/prompts/extract.py names both
 PERSON_FIELDS = ("name", "email", "slack_id", "github_login", "circleback_key_name")
 CHANNEL_KEYS = ("calls", "ops", "test")
+# The staging channel (NUA_SLACK_TEST=1 / slack_test_mode sends every post there). Optional: an empty
+# value means there is none, and turning test mode on without one fails loudly (nua/settings.py).
+OPTIONAL_CHANNEL = "test"
 DEFAULT_CHANNELS = {"calls": "#discovery-calls", "ops": "#discovery-ops", "test": "#discovery-test"}
 DEFAULT_TIMEZONE = "America/Los_Angeles"
 
@@ -112,12 +115,12 @@ def example_setup(root: str | Path, name: str) -> dict:
 def load_setup(root: str | Path) -> dict:
     """The setup as written in config/, as plain values:
 
-    {"domain": {company, team, about, market, exploring, interviewees, institution_examples, bot_name: str,
+    {"domain": {company, market, exploring, institution_examples, bot_name: str,
                 scope: {line, party, segment: str}, roles: {id: description}},
      "people": {key: {name, email, slack_id, github_login, circleback_key_name}},   # None when unset
-     "seats": [str],
+     "seats": [str],                     # the seed list; [] is fine
      "pipeline": {"timezone": str, "internal_email_domains": [str],
-                  "channels": {"calls", "ops", "test": str}, "ingest_cutoff": str | None},
+                  "channels": {"calls", "ops", "test": str}, "ingest_cutoff": str | None},   # test "" = none
      "examples": [names]}
 
     Missing files and keys read as empty ("" or None), except the pipeline defaults (time zone, channels).
@@ -141,7 +144,8 @@ def load_setup(root: str | Path) -> dict:
         "pipeline": {
             "timezone": _text(pipeline.get("timezone")) or DEFAULT_TIMEZONE,
             "internal_email_domains": [_text(d) for d in pipeline.get("internal_email_domains") or [] if _text(d)],
-            "channels": {k: _text(channels.get(k)) or DEFAULT_CHANNELS[k] for k in CHANNEL_KEYS},
+            "channels": {k: _text(channels.get(k)) if k == OPTIONAL_CHANNEL and k in channels
+                         else _text(channels.get(k)) or DEFAULT_CHANNELS[k] for k in CHANNEL_KEYS},
             "ingest_cutoff": None if cutoff in (None, "") else str(cutoff),
         },
         "examples": list_examples(root),
@@ -295,6 +299,8 @@ def _check_pipeline(p: Any) -> list[str]:
         else:
             for k in CHANNEL_KEYS:
                 name = ch.get(k)
+                if k == OPTIONAL_CHANNEL and (name is None or (isinstance(name, str) and not name.strip())):
+                    continue                    # no staging channel
                 if not isinstance(name, str) or not _CHANNEL.match(name.strip()):
                     out.append(f"{where}: channels.{k} {name!r} must be a Slack channel name like #discovery-calls")
             out += [f"{where}: channels has unknown key {k!r} (only calls, ops, test)" for k in ch if k not in CHANNEL_KEYS]
@@ -333,6 +339,150 @@ def save_setup(root: str | Path, data: dict) -> list[Path]:
     problems = validate_setup(data)
     if problems:
         raise SetupError(problems)
+    return _write(root, data)
+
+
+# Problems that only say something is not filled in yet. A partial save writes around them.
+_MISSING = (" is empty", "add at least one person")
+
+
+def is_missing(problem: str) -> bool:
+    """True for a "not filled in yet" problem (company is empty, no teammate yet), as opposed to a malformed value."""
+    return any(m in problem for m in _MISSING)
+
+
+def save_setup_partial(root: str | Path, data: dict) -> tuple[list[Path], list[dict]]:
+    """Save what can be saved, for a setup page that saves as you type.
+
+    Missing values (an empty company, no teammate yet) never block a save. A malformed value (a bad time
+    zone, email, person key, channel, cutoff or role) is left out, and the file keeps its old value for it;
+    everything else in `data` is written. Returns (changed files, problems), each problem a
+    {"field", "message"} dict naming the value that was left out, e.g. field "pipeline.timezone" or
+    "people.alex.email". `save_setup` stays strict (all or nothing) for `nua init`."""
+    clean, problems = _split_valid(data if isinstance(data, dict) else {}, load_setup(root)["pipeline"]["channels"])
+    check = {**clean}
+    if isinstance(clean.get("pipeline", {}).get("channels"), dict):
+        # channels left out keep their saved value, so check the mix that will be on disk
+        saved = load_setup(root)["pipeline"]["channels"]
+        check["pipeline"] = {**clean["pipeline"], "channels": {**saved, **clean["pipeline"]["channels"]}}
+    leftover = [p for p in validate_setup(check) if not is_missing(p)]
+    if leftover:                      # a check _split_valid does not know about: refuse rather than write it
+        raise SetupError(leftover)
+    return _write(root, clean), problems
+
+
+def _split_valid(data: dict, saved_channels: dict) -> tuple[dict, list[dict]]:
+    clean: dict = {}
+    problems: list[dict] = []
+
+    def bad(field: str, messages: list[str]) -> None:
+        problems.extend({"field": field, "message": m} for m in messages if not is_missing(m))
+
+    d = data.get("domain")
+    if isinstance(d, dict):
+        out: dict = {}
+        for key in DOMAIN_TEXT:
+            if key in d:
+                if d[key] is None or isinstance(d[key], str):
+                    out[key] = d[key]
+                else:
+                    bad(f"domain.{key}", [f"config/domain.yml: {key} must be text"])
+        if isinstance(d.get("scope"), dict):
+            out["scope"] = {k: v for k, v in d["scope"].items() if k in SCOPE_KEYS and (v is None or isinstance(v, str))}
+        if "roles" in d:
+            role_problems = _check_domain({"roles": d["roles"]})
+            role_problems = [m for m in role_problems if "role" in m]
+            if role_problems:
+                bad("domain.roles", role_problems)
+            else:
+                out["roles"] = d["roles"]
+        clean["domain"] = out
+    people = data.get("people")
+    if isinstance(people, dict):
+        out = {}
+        emails: dict[str, str] = {}
+        for key, person in people.items():
+            if not _KEY.match(str(key)):
+                bad(f"people.{key}.key", [f"config/people.yml: key {key!r} must be a short lowercase id "
+                                          "(letters, digits, _), e.g. alex"])
+                continue
+            if not isinstance(person, dict):
+                bad(f"people.{key}", [f"config/people.yml: {key}: expected name, email and so on"])
+                continue
+            person = {f: v for f, v in person.items() if f in PERSON_FIELDS}
+            email = _text(person.get("email")).lower()
+            if email and not _EMAIL.match(email):
+                bad(f"people.{key}.email", [f"{email!r} is not an email address"])
+                person.pop("email")
+            elif email and email in emails:
+                bad(f"people.{key}.email", [f"{key} and {emails[email]} share the email {email}"])
+                person.pop("email")
+            elif email:
+                emails[email] = key
+            slack = _text(person.get("slack_id"))
+            if slack and not _SLACK_ID.match(slack):
+                bad(f"people.{key}.slack_id", [f"slack_id {slack!r} should look like U0123ABCD"])
+                person.pop("slack_id")
+            out[str(key)] = person
+        clean["people"] = out
+    seats = data.get("seats")
+    if isinstance(seats, list):
+        out_seats, seen = [], set()
+        for seat in seats:
+            text = _text(seat) if isinstance(seat, str) else ""
+            if not text:
+                continue
+            if text.lower() in seen:
+                bad("seats", [f"seat {text!r} is listed twice"])
+                continue
+            seen.add(text.lower())
+            out_seats.append(text)
+        clean["seats"] = out_seats
+    p = data.get("pipeline")
+    if isinstance(p, dict):
+        out = {}
+        if "timezone" in p:
+            problem = timezone_problem(p["timezone"])
+            if problem:
+                bad("pipeline.timezone", [f"timezone {problem}"])
+            else:
+                out["timezone"] = p["timezone"]
+        if "internal_email_domains" in p:
+            domains = p["internal_email_domains"] if isinstance(p["internal_email_domains"], list) else []
+            good = [x for x in domains if isinstance(x, str) and _DOMAIN.match(x.strip().lower())]
+            wrong = [x for x in domains if x not in good]
+            if wrong:
+                bad("pipeline.internal_email_domains", [f"{x!r} is not a domain like acme.dev" for x in wrong])
+            else:
+                out["internal_email_domains"] = good
+        if isinstance(p.get("channels"), dict):
+            channels = {}
+            for k, name in p["channels"].items():
+                if k not in CHANNEL_KEYS:
+                    continue
+                problems_k = _check_pipeline({"channels": {**DEFAULT_CHANNELS, "calls": "#a", "ops": "#b", k: name}})
+                if problems_k:
+                    bad(f"pipeline.channels.{k}", [f"{name!r} must be a Slack channel name like #discovery-calls"])
+                else:
+                    channels[k] = name
+            mixed = {**saved_channels, **channels}
+            if mixed.get("calls") and mixed.get("calls") == mixed.get("ops"):
+                dropped = "ops" if "ops" in channels else "calls"
+                bad(f"pipeline.channels.{dropped}",
+                    ["the briefs and ops channels must differ (errors would bury the briefs)"])
+                channels.pop(dropped)
+            out["channels"] = channels
+        if "ingest_cutoff" in p:
+            problem = _check_pipeline({"ingest_cutoff": p["ingest_cutoff"]})
+            if problem:
+                bad("pipeline.ingest_cutoff", [problem[0].split(": ", 1)[-1]])
+            else:
+                out["ingest_cutoff"] = p["ingest_cutoff"]
+        clean["pipeline"] = out
+    return clean, problems
+
+
+def _write(root: str | Path, data: dict) -> list[Path]:
     cfg = Path(root) / CONFIG
     plans: list[tuple[Path, str]] = []
     if "domain" in data:
@@ -509,7 +659,7 @@ def _put_pipeline(doc: CommentedMap, p: dict) -> None:
             ch = doc["channels"] = CommentedMap()
         for key in CHANNEL_KEYS:
             if key in p["channels"] and _text(ch.get(key)) != _text(p["channels"][key]):
-                ch[key] = DoubleQuotedScalarString(p["channels"][key].strip())     # "#" starts a comment
+                ch[key] = DoubleQuotedScalarString((p["channels"][key] or "").strip())     # "#" starts a comment
     if "ingest_cutoff" in p:
         cutoff = p["ingest_cutoff"]
         cutoff = cutoff.isoformat() if isinstance(cutoff, (date, datetime)) else _opt_text(cutoff)

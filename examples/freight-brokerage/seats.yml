@@ -1,5 +1,6 @@
 # Example config/seats.yml for freight brokerage (examples/freight-brokerage/).
-# Seat list: the role someone speaks from on a call. The freight mode or workflow (reefer, LTL,
+# Seed seats: the role someone speaks from on a call. Optional; the list grows from the calls
+# (see examples/blank/seats.yml). The freight mode or workflow (reefer, LTL,
 # carrier onboarding...) goes in the claim scope, not the seat.
 
 # Brokerage operations

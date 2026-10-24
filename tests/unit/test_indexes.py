@@ -560,6 +560,16 @@ def test_open_questions_md(ctx):
     assert "<!-- manual:start -->" in text and "<!-- manual:end -->" in text
 
 
+def test_open_questions_skip_unheard_seats_without_a_seed_list(ctx):
+    digests, doc = corpus()
+    seed(ctx, digests, doc)
+    ctx.config.seats = []
+    regenerate(ctx)
+    under = ctx.repo.read("open-questions.md").split("## Beliefs under pressure")[1]
+    assert "### B-001" in under and "contradicted by:" in under
+    assert "not yet heard from" not in under
+
+
 def test_open_question_answered_earlier_stays_open(ctx):
     doc = beliefs_doc(entry("B-001"))
     earlier = digest("2026-09-10_a-a", coverage=[QuestionCoverage(question="Who reviews your footage?", status="answered")])

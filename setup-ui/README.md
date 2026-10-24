@@ -35,7 +35,7 @@ server refuses any host but its own.
 ## Layout
 
 - `app/`: the root layout (fonts, theme) and the one page.
-- `src/components/setup/`: the ten steps, the step frame and shared form pieces.
+- `src/components/setup/`: the seven steps, the step frame and shared form pieces.
 - `src/components/ui/`, `src/styles/`, `src/lib/cn.ts`, `src/components/theme-provider.tsx`: copied
   unchanged from the Nua design system (tokens, light and dark themes, Radix-based controls). Keep them
   in sync by copying, not by editing here.

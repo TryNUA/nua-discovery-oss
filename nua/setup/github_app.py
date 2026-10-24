@@ -27,6 +27,7 @@ import secrets
 import tempfile
 import threading
 import time
+import unicodedata
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -56,6 +57,19 @@ def build_manifest(name: str, receiver_url: str, repo_url: str) -> dict:
         "default_permissions": {"contents": "write", "metadata": "read"},
         "default_events": ["push"],
     }
+
+
+MAX_APP_NAME = 34          # "The name cannot be longer than 34 characters." (GitHub docs, registering a GitHub App)
+
+
+def default_app_name(company: str | None) -> str:
+    """`<company slug>-nua-discovery`, lowercase with hyphens, cut to GitHub's 34-character limit."""
+    ascii_name = unicodedata.normalize("NFKD", company or "").encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
+    name = f"{slug}-nua-discovery" if slug else "nua-discovery"
+    if len(name) > MAX_APP_NAME:
+        name = f"{slug[:MAX_APP_NAME - len('-nua-discovery')].rstrip('-')}-nua-discovery"
+    return name
 
 
 def new_app_url(owner: str | None) -> str:
@@ -348,6 +362,6 @@ def command(args: argparse.Namespace, root: Path, *, http: httpx.Client | None =
     return 0
 
 
-__all__ = ["build_manifest", "run_manifest_flow", "env_values", "find_installation_id", "write_env", "save_app",
+__all__ = ["default_app_name", "MAX_APP_NAME", "build_manifest", "run_manifest_flow", "env_values", "find_installation_id", "write_env", "save_app",
            "save_installation", "install_url",
            "write_tfvars", "new_app_url"]
