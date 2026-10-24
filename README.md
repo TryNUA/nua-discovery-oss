@@ -106,7 +106,7 @@ A per-task cost cap (`cost_cap_usd_per_task` in `config/pipeline.yml`) stops run
 
 The core pipeline (recorder ingest, processing, Slack briefs and buttons, the Slack bot, roll-ups, backcheck, sweeps, CLI) runs in production for the team that built it.
 
-Clouds: Google Cloud runs in production. AWS is built to the same design and tested offline (Terraform validate and simulated applies, unit tests).
+Clouds: Google Cloud runs in production. AWS is built to the same design and has been deployed and run end to end on a live account (setup page, deploy, a call processed and committed, a roll-up posted to Slack, full teardown).
 
 Recorders: Granola (one Business workspace) or Circleback (per person), or both at once. Circleback is turned on per person with `circleback_people` in Terraform; see [Self-hosting, step 8](docs/self-hosting.md#step-8-connect-your-recorder).
 
