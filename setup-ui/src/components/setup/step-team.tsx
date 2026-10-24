@@ -13,6 +13,7 @@ import { Text } from "@/components/ui/text";
 import { Field, Section, SecretField, StringList, TextLink } from "@/components/setup/common";
 import { useDraft, useFlush, useProblems, useQuietSet, useSaver, type FieldProblem } from "@/components/setup/store";
 import { StepFrame, type StepNav } from "@/components/setup/frame";
+import { ModelsCard } from "@/components/setup/models-card";
 
 type Saved = { changed: string[]; notes?: string[]; problems?: FieldProblem[]; setup: SetupConfig };
 // savedKey: the key in people.yml, never renamed (env var names and Circleback URLs use it); null for a
@@ -251,6 +252,8 @@ export function StepTeam({
   const [anthropic, setAnthropic] = useDraft(step, "secret:ANTHROPIC_API_KEY", () => "", { secret: true });
   const [openai, setOpenai] = useDraft(step, "secret:OPENAI_API_KEY", () => "", { secret: true });
   const quiet = useQuietSet(step);
+  // Gemini is required only while a model role names it (config/pipeline.yml)
+  const geminiNeeded = env.needed.models.includes("GEMINI_API_KEY");
   const flush = useFlush(step);
   const { error } = useProblems(step);
   const keys: Record<string, string> = { GEMINI_API_KEY: gemini, ANTHROPIC_API_KEY: anthropic, OPENAI_API_KEY: openai };
@@ -380,11 +383,18 @@ export function StepTeam({
           )}
         </div>
       </Section>
-      <Section title="Model key" description="The default config runs every model role on Gemini, so one key is enough.">
+      <Section
+        title="Model keys"
+        description={
+          geminiNeeded
+            ? "The default config runs every model role on Gemini, so one key is enough."
+            : "Your model roles use no Gemini model, so the Gemini key is optional."
+        }
+      >
         <SecretField
           name="GEMINI_API_KEY"
           label="Gemini API key"
-          required
+          required={geminiNeeded}
           isSet={env.keys.GEMINI_API_KEY}
           value={gemini}
           error={error("env.GEMINI_API_KEY")}
@@ -397,7 +407,10 @@ export function StepTeam({
             </>
           }
         />
-        <CollapsibleSection title="Use more providers">
+        <CollapsibleSection
+          title="Use more providers"
+          defaultOpen={Boolean(env.keys.ANTHROPIC_API_KEY || env.keys.OPENAI_API_KEY)}
+        >
           <div className="flex flex-col gap-4">
             {MORE_KEYS.map((k) => (
               <SecretField
@@ -418,6 +431,7 @@ export function StepTeam({
             ))}
           </div>
         </CollapsibleSection>
+        <ModelsCard />
       </Section>
       <Section title="Advanced" description="Optional. The defaults work for most teams.">
         <CollapsibleSection title="Scope, roles and seats">

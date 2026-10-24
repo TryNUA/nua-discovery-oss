@@ -182,6 +182,83 @@ def _seats(raw: Any) -> list[str]:
     return [_text(s) for s in raw if _text(s)] if isinstance(raw, list) else []
 
 
+# ---------- model roles (config/pipeline.yml) ----------
+
+MODEL_ROLES = ("extractors", "arbiter", "ask_map", "ask_reduce", "rollup")
+PROVIDER_KEYS = {"gemini": "GEMINI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+# The two setups in docs/self-hosting.md "Choosing models"; keep the ids in step with it.
+GEMINI_ONLY = {
+    "extractors": ["gemini:gemini-3.1-pro-preview", "gemini:gemini-3.8-flash"],
+    "arbiter": "gemini:gemini-3.7-flash",
+    "ask_map": "gemini:gemini-3.1-flash-lite",
+    "ask_reduce": "gemini:gemini-3.1-pro-preview",
+    "rollup": "gemini:gemini-3.1-pro-preview",
+}
+
+
+def cross_provider(with_gemini: bool) -> dict:
+    """The cross-provider setup from the docs. Without a Gemini key, Claude also arbitrates and rolls up."""
+    third = "gemini:gemini-3.1-pro-preview" if with_gemini else "anthropic:claude-sonnet-5"
+    return {
+        "extractors": ["anthropic:claude-sonnet-5", "openai:gpt-6-sol"],
+        "arbiter": third,
+        "ask_map": "openai:gpt-6-luna",
+        "ask_reduce": "anthropic:claude-sonnet-5",
+        "rollup": third,
+    }
+
+
+def load_models(root: str | Path) -> dict:
+    """The model roles in config/pipeline.yml ({role: spec, "extractors": [spec, spec]}), defaults filled in,
+    plus "prompt_version"."""
+    p = _read_plain(Path(root) / CONFIG / "pipeline.yml", {})
+    p = p if isinstance(p, dict) else {}
+    out = {role: p.get(role) or GEMINI_ONLY[role] for role in MODEL_ROLES}
+    out["extractors"] = [str(x) for x in out["extractors"]] if isinstance(out["extractors"], list) else list(GEMINI_ONLY["extractors"])
+    out["prompt_version"] = str(p.get("prompt_version") or "v1")
+    return out
+
+
+def providers_used(models: dict) -> list[str]:
+    """Providers the roles name, in PROVIDER_KEYS order."""
+    specs = [*models.get("extractors", []), *(models.get(r) for r in MODEL_ROLES if r != "extractors")]
+    named = {str(s).split(":", 1)[0] for s in specs if s}
+    return [p for p in PROVIDER_KEYS if p in named]
+
+
+def _next_version(version: str) -> str:
+    m = re.fullmatch(r"(.*?)(\d+)", version.strip())
+    return f"{m.group(1)}{int(m.group(2)) + 1}" if m else f"{version}-2"
+
+
+def set_models(root: str | Path, models: dict) -> list[Path]:
+    """Write the model roles into config/pipeline.yml, keeping its comments, and bump prompt_version when any
+    role changes (as the file's comment asks). Returns the changed files."""
+    bad = [r for r in MODEL_ROLES if r not in models]
+    specs = [*models.get("extractors", []), *(models.get(r) for r in MODEL_ROLES if r != "extractors")]
+    if bad or len(models.get("extractors", [])) != 2 or not all(
+            isinstance(s, str) and s.split(":", 1)[0] in PROVIDER_KEYS and ":" in s for s in specs):
+        raise SetupError(["model roles: give extractors (two) and arbiter, ask_map, ask_reduce, rollup as provider:model"])
+    current = load_models(root)
+    if all(current[r] == models[r] for r in MODEL_ROLES):
+        return []
+
+    def put(doc: CommentedMap) -> None:
+        for role in MODEL_ROLES:
+            if role == "extractors":
+                seq = doc.get("extractors")
+                if not isinstance(seq, CommentedSeq):
+                    seq = doc["extractors"] = CommentedSeq()
+                _put_seq(seq, list(models["extractors"]))
+            else:
+                _put_text(doc, role, models[role])
+        _put_text(doc, "prompt_version", _next_version(current["prompt_version"]))
+
+    path, text = _plan(root, "pipeline.yml", put, CommentedMap)
+    path.write_text(text, encoding="utf-8")
+    return [path]
+
+
 # ---------- validate ----------
 
 def validate_setup(data: dict) -> list[str]:

@@ -4,7 +4,7 @@
 # Default: Gemini only, so one API key runs everything. Two different Gemini models extract and a
 # third arbitrates, so the cross-check still compares two independent readers. With keys for more
 # than one provider, independent providers catch more of each other's misses; see
-# docs/self-hosting.md "Choosing models" for the cross-provider setup and `discovery bakeoff`.
+# docs/self-hosting.md "Choosing models" for the cross-provider setup and `nua bakeoff`.
 extractors:
   - gemini:gemini-3.1-pro-preview
   - gemini:gemini-3.8-flash

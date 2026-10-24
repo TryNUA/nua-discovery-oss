@@ -38,7 +38,7 @@ You need `git`, [`uv`](https://docs.astral.sh/uv/), [`gcloud`](https://cloud.goo
 
    `gcloud billing accounts list` shows your billing account id. `--dry-run` prints every command and runs nothing.
 
-4. **GitHub App, one click.** Opens GitHub with the app filled in (webhook to your receiver, Contents read and write, Push events, private). Name it, click **Create**, then install it on your repo when the terminal shows the link. It writes the private key and webhook secret to `.env` and the app id, slug and installation id to `terraform.tfvars`, and never prints a secret.
+4. **GitHub App, one click.** Opens GitHub with the app filled in (webhook to your receiver, Contents read and write, Push events, private). Name it, click **Create**, then install it when the terminal shows the link: choose **Only select repositories** and pick your repo. It writes the private key and webhook secret to `.env` and the app id, slug and installation id to `terraform.tfvars`, and never prints a secret.
 
    ```sh
    uv run python -m nua github-app --repo owner/my-discovery

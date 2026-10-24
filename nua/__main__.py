@@ -1,4 +1,4 @@
-"""Command line for a local clone: `uv run python -m nua <command>` (or `uv run discovery <command>`).
+"""Command line for a local clone: `uv run python -m nua <command>` (or `uv run nua <command>`).
 
     run <transcript> [--dry-run] [--beliefs PATH] [--decisions PATH] [--prep PATH] [--fake] [--[no-]digest]
     backfill <paths...>                   local processing, no Slack

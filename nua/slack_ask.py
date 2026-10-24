@@ -312,7 +312,7 @@ def answer_blocks(q: Question, res: "AskResult") -> tuple[list[dict], str]:
     context = res.coverage + (f" ({', '.join(filters)})" if filters else "")
     if len(blocks) > MAX_BLOCKS:
         blocks = blocks[:MAX_BLOCKS] + [_section("_Cut short: the full answer is longer than one Slack "
-                                                  "message. Run `discovery ask` for all of it._")]
+                                                  "message. Run `uv run python -m nua ask` for all of it._")]
     blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": context}]})
     return blocks, f"{res.answer.strip()[:2000]}\n\n{context}"
 

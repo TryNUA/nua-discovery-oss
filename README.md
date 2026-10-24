@@ -1,62 +1,120 @@
 # Nua Discovery
 
-**Your customer discovery calls, read in full, every time.**
+**Finds the patterns across your customer calls, turns them into beliefs, and tests every new call against them.**
 
-Ask an AI tool "what do buyers say about pricing?" and it searches your call notes, pulls back a handful of chunks and answers from those. You never learn which 40 calls it skipped, and the quotes are often paraphrased.
+Call recorders summarize one call at a time. Nua Discovery reads all of them. It pulls findings out of each call with verbatim quotes, notices when the same thing keeps coming up across calls and across different kinds of customers, and proposes it as a belief. Once your team accepts a belief, every new call is checked against it, and Slack tells you the moment the evidence starts to turn.
 
-Nua Discovery takes the other route. Every call is turned into a digest when it lands. Every question reads **every** digest and tells you so ("read 87/87 digests"). Every quote is checked character for character against the transcript by code, not by a model. And the things you are betting on are tracked as beliefs, with evidence for and against counted by the seat of the person who said it.
+## Get started
 
-It runs on your call recorder, a private GitHub repo, Slack and a small Google Cloud project. Infra costs a few dollars a month.
+```sh
+uv run python -m nua setup
+```
 
-## What you get in Slack
+![The Nua Discovery setup page](docs/images/setup-page.png)
 
-A few minutes after a call ends, a brief that leads with what the call changed:
+1. On GitHub, click **Use this template** and make the new repo **private** (it will hold real conversations). Clone it.
+2. Run `uv sync`, then `uv run python -m nua setup`. A local page opens and walks you through seven steps: your team, recorder (Granola or Circleback), cloud (Google Cloud or AWS), GitHub App, Slack app, deploy and go live. Every key has a "How do I get this?" guide, and everything saves as you go.
+3. Run the one deploy command the page gives you. It shows each change and asks before applying it.
+
+About an hour, most of it the cloud building. Full guides: [Google Cloud](docs/self-hosting.md), [AWS](docs/self-hosting-aws.md).
+
+**Just looking?** Try it locally with no cloud and no keys: `uv run python -m nua run tests/fixtures/darius-kemp.md --dry-run --fake`. More in [docs/local-quickstart.md](docs/local-quickstart.md).
+
+## What it does
+
+Say you are building scheduling software for independent restaurants and talking to owners and managers every week.
+
+**It finds the patterns for you.** Each Monday it groups the week's findings into themes and proposes beliefs once a theme shows up in 3+ calls from 2+ kinds of people:
 
 ```text
-Dana Ortiz · Example Mutual · claims manager / supervisor · 41m · Alex · Granola
-Touches D-001 (Footage triage tool for claims teams)
+Add belief  P-014
+"Shift swaps are arranged over group texts and the schedule is never updated"
+Evidence: 4 calls in 3 seats
+  • 2026-10-20_maria-lopez: "Half the time I find out someone swapped when the wrong person shows up."
+  • 2026-10-14_dev-patel: "It all happens in the group chat, the paper schedule is fiction by Wednesday."
+[Approve | Edit | Reject]
+```
+
+**It tests every new call against what you believe.** A few minutes after each call, Slack gets a brief that leads with what changed:
+
+```text
+Sam Okafor · Okafor's Grill · general manager · 32m · Alex · Granola
 
 WHAT CHANGED
-Contradicts B-003 "Most liability claims come with usable store footage"  [2/2 agree]  [Wrong read]
-  "On the small accounts we get nothing usable maybe three times out of four."
-  Small commercial carrier; B-003 came from large-account calls. Likely split.
-Supports B-001 "Adjusters lose hours scrubbing footage for the incident"  (now 5 calls, 3 seats; new seat: claims manager / supervisor)
-Watching W-002, supports "Buyers want review built into their claims platform"  (now 2 calls, 2 seats)
+Contradicts B-002 "Owners would pay to stop building the schedule by hand"  [2/2 agree]
+  "Building it takes me twenty minutes. It's the last-minute changes that kill me."
+  Single location; B-002 came from multi-location owners. Likely split.
+Supports B-001 "Shift swaps happen over text and get lost"  (now 6 calls, 3 seats)
 
-6 new findings · 1 dodged question
+5 new findings · 1 dodged question
 ```
 
-The thread holds the summary, each new finding with its quotes and a **Make belief / Watch** menu, and which of your prep questions were answered, dodged or never asked.
-
-Ask across every call by mentioning the bot:
-
-```text
-@Nua Discovery what do claims managers say about footage retention? since:2026-09-01
-
-Claims managers at small commercial carriers say footage is usually gone before the claim
-arrives: stores overwrite it in 7 to 30 days and claims are often reported later. Two large
-carriers keep it longer because their insureds retain it for their own risk teams.
-
-Quotes
-• 2026-10-20_dana-ortiz: "Most systems keep thirty days at best."
-• 2026-10-14_ravi-menon: "By the time the claim hits my desk the video's been recorded over."
-...
-read 87/87 digests (since 2026-09-01)
-```
-
-All names, firms and quotes above are made up.
+When a belief is contradicted in 2+ calls from 2+ kinds of people, it is flagged as under pressure. You decide whether to keep, reword, split or retire it, and every change is checked back against all past calls. All names and quotes above are made up.
 
 ## Features
 
-- **Reads every call.** Questions map over every digest with a cheap model and reduce with a strong one. The answer always ends with its coverage line.
-- **Verbatim, verified quotes.** Two models extract findings (one point, 1 to 3 quotes each). Code checks each quote against the transcript body, ignoring only case, whitespace and punctuation, asks once for a repair on a miss, and drops what still fails. The recorder's AI summary is never quoted.
-- **Cross-checked.** An arbiter model merges what both extractors found. Each finding is checked against your beliefs by two models (supports, contradicts or scope mismatch); a third settles disagreements.
-- **Beliefs with evidence.** Beliefs (B-###) and Watching items (W-###) live in `beliefs.md`. `beliefs-status.md` shows the evidence for and against each, by seat, with quotes, and flags beliefs under pressure (contradicted in 2+ calls from 2+ seats).
-- **Humans decide.** Only a person turns a finding into a belief: Slack buttons (Make belief, Watch, Wrong read, Keep, Reword, Split, Retire) or change-request files pushed by an agent. Every change gets a history line and a backcheck against every past call.
-- **Weekly roll-up.** Mondays, findings are grouped into themes and the bot proposes new beliefs, promotions, splits and retirements, each with Approve / Edit / Reject.
-- **Pre-call prep.** Ask Claude Code or Codex to prep you for a call; it writes up to 5 questions tagged with the beliefs they test, and the pipeline reports afterwards which ones got answered.
-- **Repo is the source of truth.** Transcripts, digests, beliefs and indexes are plain markdown and CSV in your private GitHub repo. Any AI agent with a clone can answer from it (`AGENTS.md` tells it how).
-- **Any market.** Three lines in `config/domain.yml` (company, who you sell to, what you are exploring) brief every prompt. Seats build themselves from the calls. `uv run python -m nua init` fills it in by asking a few questions, starting blank or from an example market in `examples/` (P&C insurance, freight brokerage).
+- **Verified quotes.** Every finding has 1 to 3 quotes, and code checks each one word for word against the transcript. Anything that does not match is dropped.
+- **Two models, cross-checked.** Two models read each call and judge each finding against your beliefs; a third settles disagreements.
+- **Breadth, not volume.** Evidence is counted by seat (the role someone speaks from), so three calls with the same kind of person never pass for a pattern.
+- **People decide.** A finding only becomes a belief when someone approves it in Slack.
+- **Ask across every call.** Mention the bot in Slack; it reads every call, not a sample, and says how many it read.
+- **Pre-call prep.** Ask Claude Code or Codex to prep you; afterwards the brief says which questions got answered.
+- **Your repo, plain files.** Transcripts, digests and beliefs are markdown and CSV in your private GitHub repo, readable by any AI agent.
+
+## Configuration reference
+
+The setup page and `nua init` write all of this for you. This section is for when you want to know what is where, or edit by hand.
+
+**Committed to your repo** (the cloud reads them on every task, so a change needs no deploy):
+
+| File | What it holds |
+|---|---|
+| `config/domain.yml` | `company`, `market` (who you sell to), `exploring` (the problems you are testing). Optional: `scope` (what each finding's line, party and segment mean in your market), `roles`, `institution_examples`, `bot_name`. Every prompt reads it |
+| `config/people.yml` | Everyone who runs calls: an id (names their secrets and Circleback URL), name, and the email their calls are recorded under. Optional: `slack_id`, `circleback_key_name`, `github_login` |
+| `config/pipeline.yml` | Model roles (`extractors`, `arbiter`, `ask_map`, `ask_reduce`, `rollup`), `prompt_version`, `ingest_cutoff` (go-live time), `timezone`, `internal_email_domains`, `cost_cap_usd_per_task`, Slack `channels`, and the `thresholds` for under pressure, new beliefs and retirements |
+| `config/seats.yml` | Optional seed list of seats. The list grows from the calls by itself; add a seat here to steer the naming or merge two |
+| `config/entities.yml` | Company and product names the transcripts garble ("guide wire" for Guidewire). Widens searches, never rewrites a quote |
+| `config/overrides.yml` | Corrections to a call's contact, firm, seat, role or date, keyed by call id |
+| `examples/` | Filled-in sample configs for two markets (`nua init --example <name>`) |
+
+**Kept on your machine** (gitignored):
+
+| File | What it holds |
+|---|---|
+| `.env` | Every secret: model keys (`GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`), recorder keys and webhook secrets, the GitHub App key and webhook secret, the Slack token and signing secret. The deploy script copies them to Secret Manager (GCP) or Secrets Manager (AWS); they never go into Terraform |
+| `infra/terraform/terraform.tfvars` | Google Cloud settings: project, region, repo, GitHub App ids, budget, time zone, who records on Circleback, schedules on or off |
+| `infra/aws/terraform/terraform.tfvars` | The same for AWS: region, architecture, budget emails and the rest |
+| `.nua-setup.json` | The setup page's own choices (cloud, recorder, AWS profile) |
+
+**Models.** The default runs every role on Gemini, so one key is enough. With Anthropic and OpenAI keys too, the setup page offers the cross-provider setup: those two extract and judge, Gemini arbitrates, and different providers catch more of each other's misses. See [Choosing models](docs/self-hosting.md#choosing-models). To pick models on your own market, draft labels with `nua label <transcript>`, correct them, and run `nua bakeoff --labels labels` (see `tests/labels/README.md`).
+
+**Prompts.** [`nua/prompts/`](nua/prompts/): `extract.py` (what counts as a finding), `consolidate.py`, `verdict.py` and `arbiter.py` (checking findings against beliefs), `ask.py` (answering questions), `rollup.py` (weekly themes and proposals), `route.py` (Slack mentions). They hold no market of their own; the market comes from `domain.yml`. Bump `prompt_version` after changing `extract.py`, `verdict.py` or `arbiter.py`. Prompt changes ship with the code (`infra/deploy.sh`, or `infra/aws/deploy.sh`).
+
+## Cost
+
+| Item | Roughly |
+|---|---|
+| Google Cloud (Cloud Run scales to zero, Tasks and Scheduler free tiers, Secret Manager, Artifact Registry) | a few dollars a month |
+| AWS (Lambda, SQS, a Fargate worker that scales to zero, Secrets Manager, ECR) | about $4 a month idle, $7 live |
+| Models, per call | $0.25 to $2, depending on the models |
+| Models, per Slack question | $0.25 to $2 (listing beliefs or findings, and greetings, are nearly free) |
+| Granola Business (for webhooks and the API), or Circleback per person | per seat, see each recorder's pricing |
+
+A per-task cost cap (`cost_cap_usd_per_task` in `config/pipeline.yml`) stops runaway model spend, and Terraform can add a monthly budget alert.
+
+## Status
+
+The core pipeline (recorder ingest, processing, Slack briefs and buttons, the Slack bot, roll-ups, backcheck, sweeps, CLI) runs in production for the team that built it.
+
+Clouds: Google Cloud runs in production. AWS is built to the same design and tested offline (Terraform validate and simulated applies, unit tests).
+
+Recorders: Granola (one Business workspace) or Circleback (per person), or both at once. Circleback is turned on per person with `circleback_people` in Terraform; see [Self-hosting, step 8](docs/self-hosting.md#step-8-connect-your-recorder).
+
+Experimental, off by default, built and tested but never run in production:
+
+- **MCP server** (`service/mcp.py`): a claude.ai connector with read tools (`ask`, `list_calls`, `get_call`...) and write tools (`request_change`, `save_prep`). Deploy with `deploy_mcp = true` in Terraform.
+
+Model ids in `config/pipeline.yml` change often. Check them against your provider before a first run.
 
 ## How it works
 
@@ -84,68 +142,7 @@ For each call the processor:
 6. Writes `digests/<call id>.md`, regenerates `beliefs-status.md`, `findings.md`, `open-questions.md`, `calls.csv` and `claims.csv`, commits and pushes.
 7. Posts the brief to Slack.
 
-A nightly sweep and an hourly Granola-only sweep catch anything a webhook missed. Details: [docs/SPEC.md](docs/SPEC.md).
-
-## Quickstart
-
-**Local, 5 minutes, no cloud.** Clone, `uv sync`, add one Gemini key, drop transcripts into `transcripts/` and run:
-
-```sh
-uv run python -m nua run tests/fixtures/darius-kemp.md --dry-run --fake   # no key needed
-uv run python -m nua backfill transcripts/
-uv run python -m nua ask "what would they pay for?"
-```
-
-Full steps: [docs/local-quickstart.md](docs/local-quickstart.md).
-
-**Self-hosted, about an hour.** Your own private repo, a Slack app, a GitHub App and Granola or Circleback webhooks, on Google Cloud or AWS. `uv run python -m nua setup` opens a local page that walks you through it; one bootstrap script runs the Terraform, secrets and build steps and asks before every change:
-
-- Google Cloud: [docs/self-hosting.md](docs/self-hosting.md)
-- AWS: [docs/self-hosting-aws.md](docs/self-hosting-aws.md)
-
-## Make it yours
-
-The quickest start is `uv run python -m nua setup`: a local page that walks through every step below and the cloud setup with forms. Or `uv run python -m nua init` in the terminal.
-
-Everything specific to one team or market is in config and prompts, not code:
-
-| To change | Edit |
-|---|---|
-| Company, who you sell to, what you are exploring (optional: scope fields, roles, bot name) | `config/domain.yml`. Every prompt reads it |
-| Seed seats, optional: the list grows from the calls (examples in `examples/*/seats.yml`) | `config/seats.yml` |
-| Starting points and example markets | `examples/` (`nua init --example <name>`) |
-| Time zone for call dates and schedules | `timezone` in `config/pipeline.yml` (default `America/Los_Angeles`); on the cloud, set Terraform's `time_zone` to match |
-| Your team, their emails and Slack ids | `config/people.yml` |
-| Slack channel names, models, cost cap, thresholds, go-live cutoff | `config/pipeline.yml` (`channels`, model roles, `cost_cap_usd_per_task`, `thresholds`, `ingest_cutoff`) |
-| Company and product name aliases the transcripts garble | `config/entities.yml` |
-| The prompts themselves | [`nua/prompts/`](nua/prompts/): `extract.py` (what counts as a finding), `consolidate.py`, `verdict.py` and `arbiter.py` (checking findings against beliefs), `ask.py` (answering questions), `rollup.py` (weekly themes and proposals), `route.py` (Slack mentions). They hold no market of their own: the market comes from `domain.yml`. Bump `prompt_version` in `config/pipeline.yml` after changing `extract.py`, `verdict.py` or `arbiter.py` |
-
-To pick models on your own market, draft labels with `nua label <transcript>`, correct them, and run `nua bakeoff --labels labels` (see `tests/labels/README.md`).
-
-Config changes take effect on the next task with no deploy. Prompt changes ship with the code (`infra/deploy.sh`).
-
-## Cost
-
-| Item | Roughly |
-|---|---|
-| GCP (Cloud Run scales to zero, Tasks and Scheduler free tiers, Secret Manager, Artifact Registry) | a few dollars a month |
-| Models, per call | $0.25 to $2, depending on the models |
-| Models, per Slack question | $0.25 to $2 (listing beliefs or findings, and greetings, are nearly free) |
-| Granola Business (for webhooks and the API), or Circleback per person | per seat, see each recorder's pricing |
-
-A per-task cost cap (`cost_cap_usd_per_task` in `config/pipeline.yml`) stops runaway model spend, and Terraform can add a monthly budget alert.
-
-## Status
-
-The core pipeline (recorder ingest, processing, Slack briefs and buttons, the Slack bot, roll-ups, backcheck, sweeps, CLI) runs in production for the team that built it.
-
-Recorders: Granola (one Business workspace) or Circleback (per person), or both at once. Circleback is turned on per person with `circleback_people` in Terraform; see [Self-hosting, step 8](docs/self-hosting.md#step-8-connect-your-recorder).
-
-Experimental, off by default, built and tested but never run in production:
-
-- **MCP server** (`service/mcp.py`): a claude.ai connector with read tools (`ask`, `list_calls`, `get_call`...) and write tools (`request_change`, `save_prep`). Deploy with `deploy_mcp = true` in Terraform.
-
-Model ids in `config/pipeline.yml` change often. Check them against your provider before a first run.
+The diagram shows Google Cloud. On AWS the same pieces are a Lambda receiver, an SQS queue, a Fargate worker that scales to zero and EventBridge schedules. A nightly sweep and an hourly Granola-only sweep catch anything a webhook missed. Details: [docs/SPEC.md](docs/SPEC.md).
 
 ## Contributing
 

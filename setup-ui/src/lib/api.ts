@@ -179,6 +179,23 @@ export function useApi<T>(path: string | null, refreshInterval = 0) {
 
 /** Re-fetch the live views that depend on files a person may edit by hand (not the slow checks). */
 export function refreshLive(): Promise<unknown> {
-  const live = ["status", "env", "deploy", "receiver", "slack", "golive", "github"];
+  const live = ["status", "env", "deploy", "receiver", "slack", "golive", "github", "models"];
   return globalMutate((key) => typeof key === "string" && live.includes(key));
 }
+
+export type ModelRoles = {
+  extractors: string[];
+  arbiter: string;
+  ask_map: string;
+  ask_reduce: string;
+  rollup: string;
+};
+
+export type ModelsInfo = {
+  roles: ModelRoles;
+  prompt_version: string;
+  preset: "gemini" | "cross" | "custom";
+  providers: string[];
+  keys: Record<"gemini" | "anthropic" | "openai", boolean>;
+  changed?: string[];
+};

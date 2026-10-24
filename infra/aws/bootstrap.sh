@@ -228,6 +228,21 @@ if [ -n "${destroy}" ]; then
       [ "${answer:-}" = "${STACK}" ] || die "not destroyed."
     fi
     plan_and_apply "destroy" -destroy
+    # Terraform only deregisters task definitions; ECS keeps them as INACTIVE until they are deleted.
+    say "Inactive task definitions"
+    if [ -n "${dry_run}" ]; then
+      echo "+ aws ecs delete-task-definitions (every INACTIVE ${STACK}-worker revision)"
+    else
+      inactive=$(aws ecs list-task-definitions --region "${REGION}" --family-prefix "${STACK}-worker" \
+        --status INACTIVE --query 'taskDefinitionArns' --output text 2>/dev/null || true)
+      if [ -n "${inactive}" ] && [ "${inactive}" != "None" ]; then
+        # shellcheck disable=SC2086  # one word per ARN; the API takes at most 10 per call
+        printf '%s\n' ${inactive} | xargs -n 10 aws ecs delete-task-definitions --region "${REGION}" \
+          --query 'taskDefinitions[].taskDefinitionArn' --output text --task-definitions
+      else
+        echo "   ok: none"
+      fi
+    fi
     # The image went with the repo: a later bootstrap starts again from stage 1 and a fresh build.
     if [ -f "${TFVARS}" ] && [ -n "$(tfvar "${TFVARS}" image)" ]; then set_tfvar image ""; fi
   elif [ -z "${dry_run}" ]; then
@@ -248,6 +263,8 @@ if [ -n "${destroy}" ]; then
    --delete-state-bucket). The tagging API can show a just-deleted resource for a few minutes; run
    --destroy again to re-check. AWS's own service-linked roles (AWSServiceRoleForECS,
    AWSServiceRoleForApplicationAutoScaling_ECSService) stay: they are free and shared by the account.
+   If nothing else in the account uses ECS and they did not exist before, remove them with
+   aws iam delete-service-linked-role --role-name <name>.
 EOF
 
   if [ -n "${delete_state}" ]; then

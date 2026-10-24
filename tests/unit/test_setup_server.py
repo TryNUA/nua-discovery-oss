@@ -518,3 +518,29 @@ def test_aws_profile_is_saved_validated_and_used(root):
     assert login["ok"] and "keel-admin" in login["detail"]
     client.put("/api/deploy", json={"aws_profile": ""})
     assert client.get("/api/checks").json()["deploy"]["command"].startswith("bash infra/aws/bootstrap.sh")
+
+
+def test_model_presets_write_roles_bump_the_version_and_set_which_keys_are_required(root):
+    client, _, _ = make(root)
+    m = client.get("/api/models").json()
+    assert m["preset"] == "gemini" and m["providers"] == ["gemini"]
+    assert client.get("/api/env").json()["needed"]["models"] == ["GEMINI_API_KEY"]
+    assert client.post("/api/models", json={"preset": "cross"}).status_code == 409      # keys first
+    client.put("/api/env", json={"values": {"ANTHROPIC_API_KEY": "a", "OPENAI_API_KEY": "o"}})
+    before = configio.load_models(root)["prompt_version"]
+    r = client.post("/api/models", json={"preset": "cross"}).json()
+    assert r["preset"] == "cross" and r["changed"] == ["config/pipeline.yml"]
+    assert r["roles"]["arbiter"] == "anthropic:claude-sonnet-5"          # no Gemini key: Claude arbitrates
+    assert r["prompt_version"] != before
+    text = (root / "config" / "pipeline.yml").read_text(encoding="utf-8")
+    assert "  - anthropic:claude-sonnet-5" in text and "# Model roles." in text      # comments kept
+    assert client.get("/api/env").json()["needed"]["models"] == ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
+    domain = dict(client.get("/api/config").json()["domain"], company="Acme", market="m", exploring="e")
+    client.put("/api/config", json={"domain": domain})
+    assert client.get("/api/status").json()["steps"]["team"] is True     # no Gemini key needed now
+    again = client.post("/api/models", json={"preset": "cross"}).json()
+    assert again["changed"] == [] and again["prompt_version"] == r["prompt_version"]   # unchanged: no bump
+    back = client.post("/api/models", json={"preset": "gemini"}).json()
+    assert back["preset"] == "gemini" and back["prompt_version"] != r["prompt_version"]
+    assert client.get("/api/status").json()["steps"]["team"] is False    # Gemini key needed again
+    assert client.post("/api/models", json={"preset": "nope"}).status_code == 422

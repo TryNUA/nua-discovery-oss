@@ -432,6 +432,7 @@ def test_bootstrap_destroy_dry_run_lists_leftovers(fake_aws):
     assert code == 0, out
     assert calls == []
     assert " plan -input=false -destroy" in out
+    assert "aws ecs delete-task-definitions" in out          # ECS keeps deregistered ones as INACTIVE
     assert "resourcegroupstaggingapi get-resources" in out and "Key=app\\,Values=nua-discovery" in out
     assert "aws s3api delete-bucket --bucket nua-tfstate-111122223333-us-west-2" in out
     assert fake_aws("bootstrap.sh", "--delete-state-bucket")[0] == 2      # only with --destroy

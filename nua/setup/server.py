@@ -258,7 +258,9 @@ class Setup:
         if recorder in ("circleback", "both"):
             for p in people:
                 rec += [person_var(CIRCLEBACK_PREFIXES[0], p), person_var(CIRCLEBACK_PREFIXES[1], p)]
-        return {"models": ["GEMINI_API_KEY"], "slack": list(SLACK_KEYS),
+        # a key for every provider the model roles in config/pipeline.yml name
+        models = [configio.PROVIDER_KEYS[p] for p in configio.providers_used(configio.load_models(self.root))]
+        return {"models": models, "slack": list(SLACK_KEYS),
                 "github": ["GITHUB_APP_PRIVATE_KEY", "GITHUB_WEBHOOK_SECRET"], "recorder": rec}
 
     def _circleback_people(self) -> list[str]:
@@ -559,6 +561,40 @@ class Setup:
         self._set_github(status="done", installation_id=str(installation))
         return self.github_status()
 
+    # ----- model roles -----
+
+    def models(self) -> dict:
+        """The roles, which preset they match, the providers they need and which keys are set (never values)."""
+        roles = configio.load_models(self.root)
+        env = self.env()
+        keys = {p: _is_set(env.get(k)) for p, k in configio.PROVIDER_KEYS.items()}
+        plain = {r: roles[r] for r in configio.MODEL_ROLES}
+        if plain == configio.GEMINI_ONLY:
+            preset = "gemini"
+        elif plain in (configio.cross_provider(True), configio.cross_provider(False)):
+            preset = "cross"
+        else:
+            preset = "custom"
+        return {"roles": plain, "prompt_version": roles["prompt_version"], "preset": preset,
+                "providers": configio.providers_used(roles), "keys": keys}
+
+    def set_models(self, body: dict) -> dict:
+        preset = body.get("preset")
+        env = self.env()
+        if preset == "gemini":
+            models = configio.GEMINI_ONLY
+        elif preset == "cross":
+            if not (_is_set(env.get("ANTHROPIC_API_KEY")) and _is_set(env.get("OPENAI_API_KEY"))):
+                raise ApiError(409, ["the cross-provider setup needs both an Anthropic and an OpenAI key in .env"])
+            models = configio.cross_provider(_is_set(env.get("GEMINI_API_KEY")))
+        else:
+            raise ApiError(422, ["preset must be gemini or cross"])
+        try:
+            changed = configio.set_models(self.root, models)
+        except configio.SetupError as e:
+            raise ApiError(422, e.problems)
+        return {**self.models(), "changed": [self._rel(p) for p in changed]}
+
     # ----- go live -----
 
     def golive(self) -> dict:
@@ -741,7 +777,7 @@ class Setup:
         cloud_need = ["project_id", "region"] if st["cloud"] == "gcp" else ["region"]
         # some but not all of a step's parts: the stepper shows these as in progress
         started = {
-            "team": bool(d.get("company") or setup["people"] or _is_set(env.get("GEMINI_API_KEY"))),
+            "team": bool(d.get("company") or setup["people"] or any(_is_set(env.get(k)) for k in MODEL_KEYS)),
             "recorder": bool(st["recorder"]),
             "cloud": self._cloud_touched(tf),
             "github": _is_set(env.get("GITHUB_APP_PRIVATE_KEY")),
@@ -752,7 +788,7 @@ class Setup:
         steps = {
             # step 1: what you research, who you are, and the one model key every run needs
             "team": not configio.validate_setup({"domain": d, "people": setup["people"], "pipeline": setup["pipeline"]})
-                    and bool(setup["people"]) and _is_set(env.get("GEMINI_API_KEY")),
+                    and bool(setup["people"]) and all(_is_set(env.get(k)) for k in needed["models"]),
             "recorder": rec_ok,
             "cloud": self.tfvars_path().is_file() and not any(_example_or_empty(k, tf.get(k)) for k in cloud_need),
             "github": _is_set(env.get("GITHUB_APP_PRIVATE_KEY"))
@@ -953,6 +989,14 @@ def create_app(setup: Setup, token: str, port: int, static_dir: Path = STATIC) -
     @app.get("/api/checks")
     def get_checks():
         return setup.checks()
+
+    @app.get("/api/models")
+    def get_models():
+        return setup.models()
+
+    @app.post("/api/models")
+    async def post_models(request: Request):
+        return setup.set_models(await body(request))
 
     @app.get("/api/golive")
     def get_golive():

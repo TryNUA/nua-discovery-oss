@@ -355,3 +355,17 @@ def test_partial_save_writes_around_missing_and_malformed_values(root):
     assert saved["people"] == {"maya": {"name": "Maya", "email": None, "slack_id": None, "github_login": None,
                                         "circleback_key_name": "circleback-key-maya"}}
     assert saved["pipeline"]["channels"]["calls"] == "#same" and saved["pipeline"]["channels"]["ops"] != "#same"
+
+
+def test_set_models_keeps_comments_bumps_prompt_version_and_lists_providers(root):
+    assert configio.providers_used(configio.load_models(root)) == ["gemini"]
+    version = configio.load_models(root)["prompt_version"]
+    changed = configio.set_models(root, configio.cross_provider(True))
+    assert changed and configio.load_models(root)["prompt_version"] != version
+    assert configio.providers_used(configio.load_models(root)) == ["gemini", "anthropic", "openai"]
+    assert configio.set_models(root, configio.cross_provider(True)) == []
+    assert "# Bump by hand" in (root / "config" / "pipeline.yml").read_text(encoding="utf-8")
+    assert config_mod.load(root).pipeline.extractors == ["anthropic:claude-sonnet-5", "openai:gpt-6-sol"]
+    with pytest.raises(configio.SetupError):
+        configio.set_models(root, {"extractors": ["x"]})
+    assert configio._next_version("v9") == "v10" and configio._next_version("2026a") == "2026a-2"
