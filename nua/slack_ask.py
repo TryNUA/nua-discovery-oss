@@ -255,6 +255,12 @@ def findings_blocks(ctx: "Ctx") -> tuple[list[dict], str]:
 
 # ---------- the answer ----------
 
+def _esc(text: str) -> str:
+    """Escape the three characters Slack mrkdwn treats as control characters, so model text cannot ping
+    @channel or disguise a link."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _mrkdwn(text: str) -> str:
     """Markdown from the model as Slack mrkdwn: **bold** to *bold*, list stars and dashes to bullets."""
     text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
@@ -293,7 +299,7 @@ def _section(text: str) -> dict:
 def answer_blocks(q: Question, res: "AskResult") -> tuple[list[dict], str]:
     """The thread reply: the answer, then the quotes it rests on (call id and verbatim quote; one that
     could not be found in the call is marked), then the coverage line. Returns (blocks, fallback text)."""
-    blocks: list[dict] = [_section(c) for c in _chunks(_mrkdwn(res.answer.strip()) or "No answer.")]
+    blocks: list[dict] = [_section(c) for c in _chunks(_mrkdwn(_esc(res.answer.strip())) or "No answer.")]
     if res.citations:
         lines = []
         for c in res.citations:
@@ -301,7 +307,7 @@ def answer_blocks(q: Question, res: "AskResult") -> tuple[list[dict], str]:
             if len(quote) > MAX_QUOTE:
                 quote = quote[:MAX_QUOTE].rsplit(" ", 1)[0] + "..."
             mark = "" if c.get("verified") else " _(not verified)_"
-            lines.append(f"• `{c.get('call_id')}`: “{quote}”{mark}")
+            lines.append(f"• `{c.get('call_id')}`: “{_esc(quote)}”{mark}")
         blocks.append({"type": "divider"})
         blocks.extend(_section(c) for c in _chunks("*Quotes*\n" + "\n".join(lines)))
     filters = []
@@ -314,7 +320,7 @@ def answer_blocks(q: Question, res: "AskResult") -> tuple[list[dict], str]:
         blocks = blocks[:MAX_BLOCKS] + [_section("_Cut short: the full answer is longer than one Slack "
                                                   "message. Run `uv run python -m nua ask` for all of it._")]
     blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": context}]})
-    return blocks, f"{res.answer.strip()[:2000]}\n\n{context}"
+    return blocks, f"{_esc(res.answer.strip()[:2000])}\n\n{context}"
 
 
 def run(ctx: "Ctx", payload: dict) -> dict:
@@ -329,7 +335,7 @@ def run(ctx: "Ctx", payload: dict) -> dict:
         raise InvalidTask("ask needs a channel, a thread_ts and a question")
     r = route(ctx, text, _thread_text(ctx, channel, thread_ts, payload.get("ts")))
     if r.kind == "reply":
-        ctx.slack.post(channel, [_section(r.reply)], r.reply, thread_ts=thread_ts)
+        ctx.slack.post(channel, [_section(_esc(r.reply))], _esc(r.reply), thread_ts=thread_ts)
         return {"answered": False, "routed": "reply"}
     if r.kind in ("beliefs", "findings"):
         blocks, fallback = beliefs_blocks(ctx, r.target) if r.kind == "beliefs" else findings_blocks(ctx)

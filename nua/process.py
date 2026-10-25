@@ -871,7 +871,7 @@ def batch_completion_check(ctx: Ctx, batch_id: str) -> bool:
     channel, key = ctx.channel("calls"), f"batch:{batch_id}"
     ts = ctx.slack.find_by_metadata(channel, BATCH_EVENT, key)
     if ts is None:
-        blocks, text = _batch_summary(batch_id, found)
+        blocks, text = _batch_summary(batch_id, found, ctx.channel("ops"))
         ts = ctx.slack.post(channel, blocks, text, metadata={"event_type": BATCH_EVENT, "event_payload": {"key": key}})
     if ts:
         _record_summary_ts(ctx, batch_id, rel, str(ts))
@@ -908,7 +908,8 @@ def _batch_files_with(ctx: Ctx, transcript: str) -> list[tuple[str, dict]]:
     return out
 
 
-def _batch_summary(batch_id: str, found: dict[str, Digest | None]) -> tuple[list[dict], str]:
+def _batch_summary(batch_id: str, found: dict[str, Digest | None],
+                   ops: str = "#discovery-ops") -> tuple[list[dict], str]:
     """(blocks, text) of a finished batch: counts, then failures, then the fix-up list."""
     counts: dict[str, int] = {}
     failures: list[str] = []
@@ -939,7 +940,7 @@ def _batch_summary(batch_id: str, found: dict[str, Digest | None]) -> tuple[list
     head = f"Backfill batch {batch_id[:12]} done: {total}. {', '.join(parts) or 'nothing processed'}."
     lines = [head]
     if failures:
-        lines += ["", "Failed (Re-run from #discovery-ops once fixed):", *failures]
+        lines += ["", f"Failed (Re-run from {ops} once fixed):", *failures]
     if unreadable:
         lines += ["", "Digest file cannot be read (fix it by hand; it is never overwritten):", *unreadable]
     if fixups:

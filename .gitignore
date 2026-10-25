@@ -16,3 +16,5 @@ setup-ui/.next/
 setup-ui/out/
 # `nua setup` keeps local choices here (cloud, recorder, repo); no secrets.
 .nua-setup.json
+
+.DS_Store

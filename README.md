@@ -88,7 +88,7 @@ The setup page and `nua init` write all of this for you. This section is for whe
 
 **Models.** The default runs every role on Gemini, so one key is enough. With Anthropic and OpenAI keys too, the setup page offers the cross-provider setup: those two extract and judge, Gemini arbitrates, and different providers catch more of each other's misses. See [Choosing models](docs/self-hosting.md#choosing-models). To pick models on your own market, draft labels with `nua label <transcript>`, correct them, and run `nua bakeoff --labels labels` (see `tests/labels/README.md`).
 
-**Prompts.** [`nua/prompts/`](nua/prompts/): `extract.py` (what counts as a finding), `consolidate.py`, `verdict.py` and `arbiter.py` (checking findings against beliefs), `ask.py` (answering questions), `rollup.py` (weekly themes and proposals), `route.py` (Slack mentions). They hold no market of their own; the market comes from `domain.yml`. Bump `prompt_version` after changing `extract.py`, `verdict.py` or `arbiter.py`. Prompt changes ship with the code (`infra/deploy.sh`, or `infra/aws/deploy.sh`).
+**Prompts.** [`nua/prompts/`](nua/prompts/): `extract.py` (what counts as a finding), `consolidate.py`, `verdict.py` and `arbiter.py` (checking findings against beliefs), `ask.py` (answering questions), `rollup.py` (weekly themes and proposals), `route.py` (Slack mentions). They hold no market of their own; the market comes from `domain.yml`. Bump `prompt_version` after changing `extract.py`, `consolidate.py`, `verdict.py`, `arbiter.py` or a model id. Prompt changes ship with the code (`infra/deploy.sh`, or `infra/aws/deploy.sh`).
 
 ## Cost
 

@@ -22,7 +22,7 @@ Environment variables (all names are listed in `.env.example`):
 - GitHub App: GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_SLUG,
   GITHUB_WEBHOOK_SECRET
 - Slack: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, NUA_SLACK_TEST=1 to send everything to the test channel
-- Cloud Tasks: GCP_PROJECT, TASKS_LOCATION, TASKS_QUEUE (discovery), PROCESSOR_URL, TASKS_SERVICE_ACCOUNT
+- Cloud Tasks: GCP_PROJECT, TASKS_LOCATION, TASKS_QUEUE (nua), PROCESSOR_URL, TASKS_SERVICE_ACCOUNT
 - Scheduler: RECEIVER_URL (OIDC audience), SCHEDULER_SERVICE_ACCOUNT; NUA_DEV=1 skips the OIDC check
 - AWS instead of Cloud Tasks (docs/self-hosting-aws.md): QUEUE_BACKEND=sqs, SQS_QUEUE_URL, TASK_NAMES_TABLE
   (DynamoDB table for task names), WORKER_CLUSTER and WORKER_SERVICE (the ECS service an enqueue wakes);

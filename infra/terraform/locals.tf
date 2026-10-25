@@ -46,7 +46,7 @@ locals {
     },
     local.mcp_on ? { mcp = "Nua Discovery MCP server" } : {},
   )
-  sa_email = { for k, _ in local.service_accounts : k => "discovery-${k}@${var.project_id}.iam.gserviceaccount.com" }
+  sa_email = { for k, _ in local.service_accounts : k => "nua-${k}@${var.project_id}.iam.gserviceaccount.com" }
 
   # Everyone who enqueues tasks (receiver, processor, and nua-mcp when deployed).
   enqueuers = concat(["receiver", "processor"], local.mcp_on ? ["mcp"] : [])

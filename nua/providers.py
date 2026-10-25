@@ -56,7 +56,7 @@ class Price:
     long_output: float | None = None
 
 
-# Matched by model id prefix, longest prefix wins. Source: docs/research/2026-09-27_ai-clients.md.
+# Matched by model id prefix, longest prefix wins.
 # Re-check against each provider's pricing page when a model id changes.
 PRICES: dict[str, Price] = {
     "claude-fable-5": Price(10.0, 50.0),
@@ -320,7 +320,8 @@ def build(spec: str, *, cost: CostTracker | None = None, timeout: float | None =
     if seconds <= 0:
         raise ValueError(f"timeout must be positive, got {timeout!r}")
     waits = RETRY_DELAYS if delays is None else tuple(float(d) for d in delays)
-    key = os.environ.get(KEY_ENV[provider], "").strip()
+    from nua.settings import env     # "placeholder" (push-secrets.sh) counts as unset
+    key = (env(KEY_ENV[provider]) or "").strip()
     if not key:
         raise LLMError(f"{KEY_ENV[provider]} is not set; {spec} needs it")
     opts: dict[str, Any] = {"cost": cost, "delays": waits, "attempt_seconds": seconds,

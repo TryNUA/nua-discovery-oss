@@ -138,7 +138,7 @@ Your instance repo accumulates transcripts, digests and beliefs: real conversati
 Either click **Use this template** on GitHub and choose **Private**, or clone and push to a new private repo:
 
 ```sh
-git clone https://github.com/<upstream-owner>/nua-discovery.git my-discovery
+git clone https://github.com/TryNUA/nua-discovery-oss.git my-discovery
 cd my-discovery
 git remote rename origin upstream          # pull later updates with: git pull upstream main
 gh repo create owner/my-discovery --private --source=. --push

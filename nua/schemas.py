@@ -110,7 +110,14 @@ def _required_objects(v: Any) -> Any:
 
 Text = Annotated[str, BeforeValidator(_text)]                       # None as "", anything else as its text
 OptText = Annotated[str | None, BeforeValidator(_opt_text)]         # None kept, anything else as its text
-Flag = Annotated[bool, BeforeValidator(bool)]
+def _flag(v: Any) -> bool:
+    """A model flag as a bool: the strings "false", "no", "0" and "" are False."""
+    if isinstance(v, str):
+        return v.strip().lower() not in ("", "false", "no", "0", "none", "null")
+    return bool(v)
+
+
+Flag = Annotated[bool, BeforeValidator(_flag)]
 OptTurn = Annotated[int | None, BeforeValidator(turn_number)]
 Turns = Annotated[list[int], BeforeValidator(_turns)]
 Texts = Annotated[list[Text], BeforeValidator(_texts)]              # not a list: []

@@ -1,4 +1,4 @@
-# The Cloud Tasks queue `discovery`: one task at a time; a 5xx is retried from 60s up to 30 minutes apart,
+# The Cloud Tasks queue `nua`: one task at a time; a 5xx is retried from 60s up to 30 minutes apart,
 # 5 attempts in all. dispatchDeadline (1800s) is a per-task field, set by nua/tasks.py on every task.
 
 resource "google_cloud_tasks_queue" "nua" {

@@ -1,7 +1,6 @@
 """Granola adapter: webhook signatures, the public REST API, and notes as standard transcript files.
 
 Docs: https://docs.granola.ai/webhooks and https://docs.granola.ai/api-reference/openapi.json
-(summarized in docs/research/2026-09-27_granola.md).
 
 A note's transcript is a list of items `{speaker: {source, attribution?, diarization_label?, name?},
 text, start_time, end_time}` with absolute ISO times. The standard file shows each turn as an

@@ -123,6 +123,8 @@ def same_call(a: ParsedTranscript, b: ParsedTranscript, *, window_minutes: int =
     if abs((start_a - start_b).total_seconds()) > window_minutes * 60:
         return False
     shared = _emails(a.attendees) & _emails(b.attendees)
+    # the recorder, by email when people.yml does not know them (a blank config, a new teammate)
+    shared -= {str(r).strip().lower() for r in (a.recorded_by, b.recorded_by) if r and "@" in str(r)}
     if config is not None:
         shared = {e for e in shared if not _is_internal(e, config)}
     return bool(shared)

@@ -87,7 +87,7 @@ _clock: Callable[[], float] = time.monotonic   # replaced in tests
 log = logging.getLogger("nua.mcp")
 
 INSTRUCTIONS = """\
-nua-discovery: every customer discovery call the team has recorded, digested at ingest. The team is listed in \
+Nua Discovery: every customer discovery call the team has recorded, digested at ingest. The team is listed in \
 config/people.yml and what the discovery is about in config/domain.yml. The GitHub repo is the source of truth; \
 this server reads it.
 
@@ -106,7 +106,7 @@ quotes; a quote with attribution: inferred crosses speaker turns. Say so when wh
 - Skip stub digests (status internal, parse_failed or failed). They hold no claims.
 - Beliefs change only through `request_change`, applied by the processor and announced in Slack. Never edit \
 beliefs.md. Never resolve a conflict yourself: surface it and let the team decide.
-- The same firm shows up under speech-recognition variants (for example "Guidewire" and "guide wire"); \
+- The same firm shows up under speech-recognition variants (for example "Acme" and "ack me"); \
 config/entities.yml maps them.
 
 How to work:
@@ -1406,4 +1406,4 @@ def create_app():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(create_app(), host="0.0.0.0", port=int(os.environ.get("PORT", "8080")))
+    uvicorn.run(create_app(), host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "8080")))

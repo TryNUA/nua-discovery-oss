@@ -162,7 +162,7 @@ def load(root: str | Path) -> Config:
         channels={**PipelineConfig.__dataclass_fields__["channels"].default_factory(), **(p.get("channels") or {})},
         thresholds=thresholds,
     )
-    people = [Person(key=k, **(v or {})) for k, v in (_load_yaml(repo, "config/people.yml", {}) or {}).items()]
+    people = [_load_person(k, v) for k, v in (_load_yaml(repo, "config/people.yml", {}) or {}).items()]
     seats = list(_load_yaml(repo, "config/seats.yml", []) or [])
     entities_raw = _load_yaml(repo, "config/entities.yml", {}) or {}
     entities: dict[str, list[str]] = {}
@@ -173,6 +173,14 @@ def load(root: str | Path) -> Config:
     return Config(root=root, pipeline=pipeline, people=people, seats=seats,
                   entities=entities, overrides=overrides,
                   domain=_load_domain(_load_yaml(repo, "config/domain.yml", {}) or {}))
+
+
+def _load_person(key: Any, raw: Any) -> Person:
+    """One config/people.yml entry: unknown fields ignored, a bare string taken as the name, the name
+    defaulting to the key, so a hand-edit slip never stops every task."""
+    raw = {"name": raw} if isinstance(raw, str) else (raw if isinstance(raw, dict) else {})
+    fields = {f: str(raw[f]) for f in ("email", "slack_id", "github_login", "circleback_key_name") if raw.get(f)}
+    return Person(key=str(key), name=str(raw.get("name") or key), **fields)
 
 
 def _load_domain(raw: dict) -> Domain:

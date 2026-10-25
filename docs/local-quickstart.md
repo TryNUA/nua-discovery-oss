@@ -9,8 +9,8 @@ When you want calls to flow in by themselves and briefs in Slack, move on to [se
 You need Python 3.12+, git and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-git clone https://github.com/<owner>/nua-discovery.git
-cd nua-discovery
+git clone https://github.com/TryNUA/nua-discovery-oss.git
+cd nua-discovery-oss
 uv sync
 ```
 
@@ -59,7 +59,7 @@ It asks six things: company, who you sell to, what you are exploring, your teamm
 
 ```sh
 uv run python -m nua init --example freight-brokerage --company "Halyard Labs" \
-  --person maya,"Maya Ortiz",maya@halyard.dev --internal-domain halyard.dev --timezone America/Chicago --yes
+  --person "Maya Ortiz,maya@halyard.dev" --internal-domain halyard.dev --timezone America/Chicago --yes
 ```
 
 Two example markets in `examples/` show what good answers look like: `insurance` (a startup exploring AI for P&C insurance, the market of the test calls) and `freight-brokerage` (a startup exploring software for freight brokerages). `--example <name>` starts from one; it replaces `domain.yml`, `seats.yml` and `entities.yml` and leaves your team and pipeline settings alone.

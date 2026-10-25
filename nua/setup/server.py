@@ -655,10 +655,11 @@ class Setup:
     def checks(self) -> dict:
         st = self.state()
         cloud = st["cloud"]
-        tools = ("gcloud", "terraform", "uv") if cloud == "gcp" else ("aws", "terraform", "uv")
+        tools = ("gcloud", "terraform", "uv", "curl") if cloud == "gcp" else ("aws", "terraform", "uv", "zip", "curl")
         install = {"gcloud": "https://cloud.google.com/sdk/docs/install",
                    "terraform": "https://developer.hashicorp.com/terraform/install",
                    "uv": "https://docs.astral.sh/uv/",
+                   "zip": "your package manager", "curl": "your package manager",
                    "aws": "https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"}
         out: list[dict] = []
         for t in tools:
@@ -774,7 +775,7 @@ class Setup:
         needed = self.needed_keys()
         rec_ok = bool(st["recorder"]) and all(_is_set(env.get(k)) for k in needed["recorder"]
                                                if k != "GRANOLA_WEBHOOK_SECRET" and not k.startswith(CIRCLEBACK_PREFIXES[1]))
-        cloud_need = ["project_id", "region"] if st["cloud"] == "gcp" else ["region"]
+        cloud_need = ["project_id", "region", "repo_slug"] if st["cloud"] == "gcp" else ["region", "repo_slug"]
         # some but not all of a step's parts: the stepper shows these as in progress
         started = {
             "team": bool(d.get("company") or setup["people"] or any(_is_set(env.get(k)) for k in MODEL_KEYS)),

@@ -97,6 +97,10 @@ export function StepDeploy({ nav }: { nav: StepNav }) {
           </div>
         )}
         {data?.deploy.note && <Note title="Heads up" description={data.deploy.note} variant="warn" />}
+        <Note
+          title="Commit and push config/ first"
+          description="The cloud reads your team, email domains, channels and models from config/ in your GitHub repo, not from this machine. Run: git add config && git commit -m 'Set up config' && git push"
+        />
         <Text size="sm" color="muted" leading="relaxed">
           {gcp &&
             "The first run creates the state bucket, runs terraform init and prints the receiver URL. It stops if the GitHub App or keys are missing; fill them in and run it again. A full run applies stage 1, pushes the secrets from .env, builds the image, applies stage 2 and checks the receiver."}

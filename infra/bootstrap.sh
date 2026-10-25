@@ -274,11 +274,14 @@ for key in repo_slug github_app_id github_app_installation_id github_app_slug; d
   fi
 done
 case "${problems}" in *github_app*) problems+=$'\n'"    -> uv run python -m nua github-app --repo <owner/name> --receiver-url ${RECEIVER_URL}" ;; esac
-for key in GEMINI_API_KEY SLACK_BOT_TOKEN SLACK_SIGNING_SECRET GITHUB_APP_PRIVATE_KEY GITHUB_WEBHOOK_SECRET; do
+# a key for every provider the model roles in config/pipeline.yml name (provider:model)
+model_keys="$(sed 's/#.*//' "${ROOT}/config/pipeline.yml" 2>/dev/null | grep -oE '(gemini|anthropic|openai):' | sort -u | tr -d ':' | tr '[:lower:]' '[:upper:]' | sed 's/$/_API_KEY/' | xargs || true)"
+for key in ${model_keys:-GEMINI_API_KEY} SLACK_BOT_TOKEN SLACK_SIGNING_SECRET GITHUB_APP_PRIVATE_KEY GITHUB_WEBHOOK_SECRET; do
   env_has "${key}" || problems+=$'\n'"  .env: ${key} is empty"
 done
 case "${problems}" in *SLACK_*) problems+=$'\n'"    -> uv run python -m nua slack-manifest --receiver-url ${RECEIVER_URL}, create the app, install it, copy the two values" ;; esac
 case "${problems}" in *GEMINI_API_KEY*) problems+=$'\n'"    -> a paid-tier key from https://aistudio.google.com/apikey" ;; esac
+case "${problems}" in *ANTHROPIC_API_KEY*|*OPENAI_API_KEY*) problems+=$'\n'"    -> or switch config/pipeline.yml back to Gemini only (docs/self-hosting.md#choosing-models)" ;; esac
 if [ -n "${problems}" ]; then
   if [ -n "${dry_run}" ]; then
     echo "   warning, a real run stops here:${problems}"

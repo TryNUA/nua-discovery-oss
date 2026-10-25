@@ -237,7 +237,7 @@ export function StepGoLive({ live, env, nav }: { live: GoLive; env: EnvStatus; n
             </Text>
           )}
           <Text size="xs" color="faint">
-            Saved in config/pipeline.yml. Commit and push it: config changes need no deploy.
+            Saved in config/pipeline.yml. Commit and push config/ (all of it): config changes need no deploy.
           </Text>
         </div>
       </Section>

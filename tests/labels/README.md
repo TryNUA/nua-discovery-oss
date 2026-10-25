@@ -66,7 +66,7 @@ A model finding matches a labeled finding when any of its quotes overlaps any of
 
 ## Recall bar
 
-Proposed: **0.8** overall on merged findings, with no fixture below 0.7. It is fixed here before the bake-off runs, per the SPEC. Changing it later needs a note in `docs/research/` saying why.
+Proposed: **0.8** overall on merged findings, with no fixture below 0.7. It is fixed here before the bake-off runs, per the SPEC. Changing it later needs a note in the PR saying why.
 
 ## Verdict cases
 
@@ -75,7 +75,7 @@ Proposed: **0.8** overall on merged findings, with no fixture below 0.7. It is f
 - `accept` lists other verdicts that also count. The contradicting side of each conflict is a likely scope split, so it accepts `scope_mismatch`.
 - A judge's verdict is correct when it equals `expected` or is in `accept`. Verdict accuracy is correct cases divided by cases.
 
-The P1 pass rule is that all three conflicts come out `contradicts` or `scope_mismatch` on their contradicting side. The write-up behind them is `tests/expected/conflicts_first-four.md`.
+The pass rule is that all three conflicts come out `contradicts` or `scope_mismatch` on their contradicting side. The write-up behind them is `tests/expected/conflicts_first-four.md`.
 
 ## Adding or changing a label
 

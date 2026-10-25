@@ -38,7 +38,7 @@ class Fakes:
         self.commands: list[list[str]] = []
         self.answers: dict[str, tuple[int, str]] = {}
         self.health = 200
-        self.tools = {"gcloud", "terraform", "uv", "aws"}
+        self.tools = {"gcloud", "terraform", "uv", "aws", "zip", "curl"}
 
     def run(self, cmd, timeout):
         self.commands.append(cmd)
@@ -477,6 +477,9 @@ def test_cloud_is_not_started_by_a_tfvars_copied_from_the_example(root):
     client.put("/api/deploy", json={"fields": {"billing_account": "ABCDEF-123456-ABCDEF"}})
     assert client.get("/api/status").json()["started"]["cloud"] is True     # touched, project still missing
     client.put("/api/deploy", json={"fields": {"project_id": "acme-discovery"}})
+    status = client.get("/api/status").json()
+    assert status["steps"]["cloud"] is False and status["started"]["cloud"] is True    # repo_slug still missing
+    client.put("/api/deploy", json={"fields": {"repo_slug": "acme/discovery"}})
     status = client.get("/api/status").json()
     assert status["steps"]["cloud"] is True and status["started"]["cloud"] is False
 

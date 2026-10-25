@@ -85,6 +85,18 @@ def test_same_call_by_ical_uid_and_pacific_date():
     assert same_call(a, b)
 
 
+def test_recorder_email_never_makes_two_calls_one():
+    # A blank people.yml: the Granola owner is on both calls, 8 minutes apart, with different guests.
+    a = make("transcripts/granola_a.md", start="2026-09-18T10:00:00-07:00", recorded_by="owner@acme.dev",
+             emails=["owner@acme.dev", "jane@carrier.com"])
+    b = make("transcripts/granola_b.md", start="2026-09-18T10:08:00-07:00", recorded_by="owner@acme.dev",
+             emails=["owner@acme.dev", "bob@broker.com"])
+    assert not same_call(a, b)
+    c = make("transcripts/granola_c.md", start="2026-09-18T10:05:00-07:00", recorded_by="owner@acme.dev",
+             emails=["owner@acme.dev", "jane@carrier.com"])
+    assert same_call(a, c)
+
+
 def test_ical_uid_on_different_day_is_a_different_call():
     # A recurring invite keeps its ical_uid across instances.
     a = make("transcripts/circleback_1.md", ical_uid="abc@google.com", start="2026-09-18T16:00:00-07:00")

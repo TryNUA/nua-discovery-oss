@@ -6,7 +6,7 @@ Instructions for any AI agent working in this repo (Claude Code, Codex, Cursor o
 
 A knowledge base of one team's customer discovery calls, built so that an AI can answer questions across **every** call rather than a retrieved handful. What the discovery is about lives in `config/domain.yml`: the company, who it sells to (`market`) and what it is exploring. Read it before you answer anything; it gives you the vocabulary and what counts as relevant. The people on the team are in `config/people.yml`, the seats (roles interviewees speak from) in `calls.csv`, seeded by `config/seats.yml`.
 
-When the pipeline is deployed, calls arrive from the call recorder (Granola, or Circleback) through a GCP pipeline that commits the transcript, writes a digest and posts a brief to Slack. The bot commits to `main` all the time, so run `git pull` before you answer anything.
+When the pipeline is deployed, calls arrive from the call recorder (Granola, or Circleback) through the deployed pipeline (Google Cloud or AWS), which commits the transcript, writes a digest and posts a brief to Slack. The bot commits to `main` all the time, so run `git pull` before you answer anything.
 
 ## Setup (local clone)
 
@@ -106,7 +106,7 @@ requested_at: <ISO timestamp with offset>   # optional; keeps an identical reque
 - **Never edit a transcript** after ingest.
 - **Corrections to a call's contact, firm, seat, role or date** go in `config/overrides.yml`, keyed by call id, when someone on the team asks. The pipeline rewrites the digest from it. The call id itself never changes.
 - **Never resolve a contradiction on your own.** Report it with both quotes and a scope diagnosis. The team decides.
-- **Use `config/entities.yml` to widen searches and fill structured fields,** never to rewrite a quote. ASR garbles names, so the same firm can show up spelled two ways across transcripts (the shipped example maps "guide wire" to Guidewire).
+- **Use `config/entities.yml` to widen searches and fill structured fields,** never to rewrite a quote. ASR garbles names, so the same firm can show up spelled two ways across transcripts (`examples/insurance` maps "guide wire" to Guidewire).
 - **Mind speaker labels.** On calls marked `me_them`, `diarized` or `single_stream`, who said what is inferred. Say so when it matters.
 - **Skip stub digests** (`status` of `internal`, `parse_failed` or `failed`) when answering questions.
 

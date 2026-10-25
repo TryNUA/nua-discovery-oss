@@ -1,4 +1,4 @@
-# Service accounts and the IAM between them, least privilege as before (formerly infra/setup.sh).
+# Service accounts and the IAM between them, least privilege.
 #
 #   nua-receiver, nua-processor, nua-mcp   one per Cloud Run service (nua-mcp only with deploy_mcp)
 #   nua-tasks                              the identity Cloud Tasks calls the processor as
@@ -11,13 +11,13 @@
 resource "google_service_account" "sa" {
   for_each = local.service_accounts
 
-  account_id   = "discovery-${each.key}"
+  account_id   = "nua-${each.key}"
   display_name = each.value
 
   depends_on = [google_project_service.apis]
 }
 
-# Everyone who enqueues needs to create tasks (project-wide, as before) ...
+# Everyone who enqueues needs to create tasks (project-wide) ...
 resource "google_project_iam_member" "enqueuer" {
   for_each = toset(local.enqueuers)
 

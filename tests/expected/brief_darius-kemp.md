@@ -2,7 +2,7 @@
 
 The v2 brief for `tests/fixtures/darius-kemp.md`, as plain text: the top message, then one section per thread reply. Built from the findings, verdicts and question coverage in `tests/labels/darius-kemp.yml`, against `tests/golden/beliefs.md`, `tests/golden/decisions.md` and `tests/golden/prep_darius-kemp.md`.
 
-How it is compared (BUILD_PLAN P1): what-changed items match on (target, verdict); new findings match on quote-span overlap of their first quotes; Alex judges the rest.
+How it is compared: what-changed items match on (target, verdict); new findings match on quote-span overlap of their first quotes; Alex judges the rest.
 
 Assumptions a reader needs:
 - Darius's is the only digest in the repo, as in a dry run on a fresh copy, so every supported belief is at 1 call and 1 seat, and the seat is new to it. That is why the supports are not collapsed to one line.

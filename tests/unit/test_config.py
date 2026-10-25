@@ -229,3 +229,11 @@ def test_sweep_skips_recorder_steps_with_an_unreadable_cutoff(bad_cutoff):
                        circleback={"alex": _Circleback([_meeting(1002, AFTER)])})
     assert report.ingested == []
     assert any(str(ctx.config.pipeline.ingest_cutoff) in e for e in report.errors)
+
+
+def test_people_yml_slips_do_not_break_loading(tmp_repo):
+    (tmp_repo / "config/people.yml").write_text(
+        "alex:\n  name: Alex Rivera\n  email: alex@acme.dev\n  role: CEO\nsam: Sam Okafor\njordan: {}\n")
+    people = {p.key: p for p in config_mod.load(tmp_repo).people}
+    assert people["alex"].name == "Alex Rivera" and people["alex"].email == "alex@acme.dev"
+    assert people["sam"].name == "Sam Okafor" and people["jordan"].name == "jordan"

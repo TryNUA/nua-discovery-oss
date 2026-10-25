@@ -125,6 +125,9 @@ def run_manifest_flow(owner: str | None, manifest: dict, *, open_browser: bool =
             self.wfile.write(body)
 
         def do_GET(self) -> None:
+            if self.headers.get("Host") != f"127.0.0.1:{self.server.server_address[1]}":
+                self._send(403, b"forbidden")   # a DNS-rebinding page must not read `state`
+                return
             u = urlparse(self.path)
             if u.path == "/":
                 self._send(200, holder["page"])

@@ -2,7 +2,7 @@
 
 How the pipeline behaves. Code docstrings point into this file by section name (`SPEC "Nightly sweep"`), so the section headings stay stable.
 
-A knowledge base of one team's customer discovery calls. What the discovery is about (the company, who it sells to, what it is exploring, and optionally what the scope fields and roles mean) is configured in `config/domain.yml`, and the team in `config/people.yml`. Calls come in from Granola or Circleback, get digested on GCP when they land, and are read in Slack, by any AI agent working in a clone of the repo (`AGENTS.md`), or through an experimental MCP server.
+A knowledge base of one team's customer discovery calls. What the discovery is about (the company, who it sells to, what it is exploring, and optionally what the scope fields and roles mean) is configured in `config/domain.yml`, and the team in `config/people.yml`. Calls come in from Granola or Circleback, get digested in the cloud (Google Cloud or AWS) when they land, and are read in Slack, by any AI agent working in a clone of the repo (`AGENTS.md`), or through an experimental MCP server.
 
 Examples in this spec use the shipped example domain, a fictional startup ("Acme": Alex, Sam and Jordan) exploring AI for P&C insurance. Every name, firm and quote in them is made up.
 
@@ -39,7 +39,7 @@ Scale: built for hundreds of calls, for example a backfill of 70 and then 15+ ne
 | Storage | Your private GitHub repo. Plus one bucket for the MCP server's sign-in state, only when MCP is deployed; nothing about calls or beliefs goes there | Agents read it natively, belief history lives in git, GitHub renders markdown. The MCP sign-in files need a durable, shared folder, which the repo cannot be |
 | Trigger | Recorder webhooks, plus a nightly sweep and an hourly Granola sweep as safety nets | Granola never replays a failed event, Circleback retries are undocumented |
 | Receiver | On a webhook, fetch the overview and transcript, commit them as a markdown file, return 200. All other work happens after | The recorder retries if anything fails before the 200 |
-| Compute | All in GCP: Cloud Run receiver, one Cloud Tasks queue, one Cloud Run processor, Cloud Scheduler | Scales to zero, one worker, a few dollars a month. GitHub Actions is not used |
+| Compute | Google Cloud: Cloud Run receiver, one Cloud Tasks queue, one Cloud Run processor, Cloud Scheduler. AWS runs the same design on Lambda, SQS, Fargate and EventBridge (`docs/self-hosting-aws.md`) | Scales to zero, one worker, a few dollars a month. GitHub Actions is not used |
 | Belief tracking | Curated: findings (automatic), Watching and Beliefs (human-approved) | An automatic ledger at 15+ calls a week turns into noise and false conflicts |
 | Seeding beliefs | Derived from the backfill, approved in Slack | No existing list to trust |
 | Approvals | Slack buttons | Fastest loop for a small team |
@@ -681,7 +681,7 @@ Prep files are named by planned date and contact, not by call id. The digest's `
 
 ### GCP (one project)
 
-Infrastructure is Terraform in `infra/terraform/` (state in a GCS bucket created once by hand), applied in two stages: stage 1 without an image (APIs, service accounts and IAM, secret containers, Artifact Registry, queue), stage 2 with the first image (Cloud Run services and Scheduler jobs). Secret values are added with gcloud and never reach Terraform state. Code ships with `infra/deploy.sh` (Cloud Build, then `gcloud run services update --image`); Terraform ignores the image, so the two do not fight. Service URLs are Cloud Run's deterministic `https://<service>-<project number>.<region>.run.app`. Details and costs: `infra/README.md`. The first-time sequence, end to end: `docs/self-hosting.md`.
+Infrastructure is Terraform in `infra/terraform/` (state in a GCS bucket created once by hand), applied in two stages: stage 1 without an image (APIs, service accounts and IAM, secret containers, Artifact Registry, queue), stage 2 with the first image (Cloud Run services and Scheduler jobs). Secret values are added with `infra/push-secrets.sh` and never reach Terraform state. Code ships with `infra/deploy.sh` (Cloud Build, then `gcloud run services update --image`); Terraform ignores the image, so the two do not fight. Service URLs are Cloud Run's deterministic `https://<service>-<project number>.<region>.run.app`. Details and costs: `infra/README.md`. The first-time sequence, end to end: `docs/self-hosting.md`.
 
 - **Cloud Run:**
   - `mcp`: experimental, not deployed by default (`infra/terraform` creates it only with `deploy_mcp = true`). When deployed: public, sign-in required, min 0 instances, max 1 instance, sign-in state on a Cloud Storage volume at `/oauth` (`FASTMCP_HOME`), 300s timeout (for `ask`).
@@ -693,7 +693,7 @@ Infrastructure is Terraform in `infra/terraform/` (state in a GCS bucket created
   - `sweep-granola`: hourly at :30, `granola_only: true`
   - `rollup`: Mondays 8am
   - `rollup-bootstrap`: never scheduled, run by hand after a backfill
-- **Secret Manager:** Granola workspace key and webhook secret; Anthropic, OpenAI and Gemini API keys (Gemini on its paid tier, so prompts are not used to improve Google's products); GitHub App private key and webhook secret; Slack bot token and signing secret. Per person who records on Circleback: an API key and a signing secret (`circleback_people` in tfvars, `CIRCLEBACK_PEOPLE` for `push-secrets.sh`). Only when switched on: and the MCP OAuth client secret and JWT signing key (`DEPLOY_MCP=1`).
+- **Secret Manager:** Granola workspace key and webhook secret; Anthropic, OpenAI and Gemini API keys (Gemini on its paid tier, so prompts are not used to improve Google's products); GitHub App private key and webhook secret; Slack bot token and signing secret. Per person who records on Circleback: an API key and a signing secret (`circleback_people` in tfvars, `CIRCLEBACK_PEOPLE` for `push-secrets.sh`). Only when switched on: the MCP OAuth client secret and JWT signing key (`DEPLOY_MCP=1`).
 - **Artifact Registry** for the image. **Cloud Logging** for everything.
 
 ### GitHub App
@@ -732,7 +732,7 @@ config/
                         is posted (processor-written)
   themes.yml            finding theme assignments, plus the rollup record with its
                         `counted` call list (roll-up-written)
-discovery/
+nua/
   __main__.py           the CLI
   parse.py  ingest/granola.py  ingest/circleback.py
   process.py  extract.py  verify.py  merge.py  verdicts.py  digest.py  indexes.py
@@ -743,9 +743,11 @@ discovery/
   schemas.py            reply models to strict JSON schemas, lenient field types
   prompts/              extract.py  consolidate.py  verdict.py  arbiter.py  rollup.py  ask.py  route.py
                         (one str constant per prompt part, e.g. SYSTEM, EXTRACT, REPAIR)
+  setup/                the local setup page server and `nua init` (UI source in setup-ui/)
 service/
   main.py               receiver and processor routes
   mcp.py                MCP server: tools, sign-in, repo sync (experimental)
+  worker.py             the AWS Fargate worker that drains SQS
   Dockerfile
 infra/
   terraform/            Terraform for APIs, service accounts and IAM, secret containers,
@@ -753,11 +755,13 @@ infra/
   deploy.sh             builds the image with Cloud Build and rolls it out (code only)
   push-secrets.sh       copies secret values from .env to Secret Manager
   README.md             what each file creates, costs, first-time setup, day 2
+  aws/                  the same for AWS: terraform/, bootstrap.sh, deploy.sh, push-secrets.sh
+examples/               sample configs for `nua init --example`
 tests/
   fixtures/  labels/  expected/  golden/  unit/
 pyproject.toml  uv.lock  .env.example  .gcloudignore
 docs/
-  SPEC.md  local-quickstart.md  self-hosting.md  slack-app-manifest.yml
+  SPEC.md  local-quickstart.md  self-hosting.md  self-hosting-aws.md  slack-app-manifest.yml
 ```
 
 `prompt_version` covers `nua/prompts/extract.py`, `nua/prompts/consolidate.py`, `nua/prompts/verdict.py`, `nua/prompts/arbiter.py` and the model ids, and is bumped by hand when any of them change. Prompts are code: a change ships with the next deploy, not with a config commit.

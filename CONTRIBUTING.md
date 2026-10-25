@@ -7,8 +7,8 @@ Thanks for helping. Bug reports, fixes, docs and new recorder or provider suppor
 You need Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-git clone https://github.com/<owner>/nua-discovery.git
-cd nua-discovery
+git clone https://github.com/TryNUA/nua-discovery-oss.git
+cd nua-discovery-oss
 uv sync                      # builds .venv from uv.lock, dev tools included
 cp .env.example .env         # only needed to call real models
 ```
